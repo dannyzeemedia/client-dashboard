@@ -257,7 +257,7 @@
 <script>
 const SB_URL='https://dxocfmwjwzzseepujfji.supabase.co'
 const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4b2NmbXdqd3p6c2VlcHVqZmppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMDYxODEsImV4cCI6MjEwMDc4MjE4MX0.id5f4bAwWHSYmIumwvSQ0X1g7R6PqUH-HnGs_5SKFq4'
-const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_ANON):null
+const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:true,lock:(name,acquireTimeout,fn)=>fn()}}):null
 
 // ---- data globals (filled from Supabase) ----
 let MONTHS=[],flow=[],camp=[],subs=[],csends=[],crecip=[],unsub=[],spam=[],FLOWDATA=[],MI={};
