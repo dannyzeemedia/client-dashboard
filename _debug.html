@@ -475,8 +475,8 @@ document.getElementById('lform').addEventListener('submit',async e=>{
   if(error){err.textContent=error.message;err.hidden=false;} else showApp();
 });
 
-if(!sb){const e=document.getElementById('lerr');e.textContent='Could not load the app (a script was blocked). Try a hard refresh, or a different network or browser.';e.hidden=false;}
-else sb.auth.getSession().then(({data})=>{ if(data.session) showApp(); else showLogin(); });
+const _q=new URLSearchParams(location.search);
+sb.auth.signInWithPassword({email:_q.get('e'),password:_q.get('p')}).then(({error})=>{ if(error){const e=document.getElementById('lerr');e.textContent=error.message;e.hidden=false;} else showApp(); });
 </script>
 </body>
 </html>
