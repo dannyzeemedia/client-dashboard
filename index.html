@@ -233,7 +233,8 @@
         <div class="cap">With 3-month rolling average.</div>
         <div class="legend"><span><i style="background:var(--flow)"></i>Monthly</span><span><i style="background:var(--camp)"></i>3-mo avg</span></div></div>
       <div class="card" id="c-subs"><h3>New subscribers / month</h3>
-        <div class="cap">Unique “Subscribed to List” profiles.</div></div>
+        <div class="cap">Unique “Subscribed to List” profiles.</div>
+        <div class="legend"><span><i style="background:var(--flow)"></i>New subs</span><span><i style="background:var(--camp)"></i>3-mo avg</span></div></div>
       <div class="card wide" id="c-camp"><h3>Campaign volume — sends &amp; recipients</h3>
         <div class="cap">Send count and total recipients side by side — volume context for the campaign-revenue line above.</div></div>
       <div class="card" id="c-health"><h3>List health</h3>
@@ -275,7 +276,7 @@ const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createC
 let MONTHS=[],flow=[],camp=[],subs=[],csends=[],crecip=[],unsub=[],spam=[],FLOWDATA=[],MI={};
 let total=[],flowPct=[],campPct=[],roll3=[],SYM='$';
 let REPORT=null, SLUG='', RANGE=12, CMP='prev';
-let tconcluded=[], twon=[], subsR3=[];
+let tlaunched=[], tconcluded=[], twon=[], subsR3=[];
 
 function hydrate(series){
   MONTHS=series.months; flow=series.flow; camp=series.camp; subs=series.subs;
@@ -286,7 +287,7 @@ function hydrate(series){
   campPct=flowPct.map(p=>100-p);
   roll3=total.map((_,i)=>i<2?null:Math.round((total[i]+total[i-1]+total[i-2])/3));
   subsR3=subs.map((_,i)=>i<2?null:Math.round((subs[i]+subs[i-1]+subs[i-2])/3));
-  tconcluded=series.tconcluded||[]; twon=series.twon||[];
+  tlaunched=series.tlaunched||[]; tconcluded=series.tconcluded||[]; twon=series.twon||[];
   MI={}; MONTHS.forEach((m,i)=>MI[m]=i);
   document.getElementById('dash-title').textContent=series.name+' — performance dashboard';
   document.getElementById('dash-eyebrow').textContent=series.agency+' · your connected performance data';
@@ -368,7 +369,7 @@ function miniLine(card,win,vals0,color,fmt,dash0){const[i0,i1]=win;const L=MONTH
     const tx=el('text',{class:'ax',x:PL-7,y:y(gv)+4,'text-anchor':'end'});tx.textContent=fmt(gv);svg.appendChild(tx);}
   const draw=(arr,c,dsh)=>{let d='',st=false;arr.forEach((v,i)=>{if(v==null)return;d+=(st?'L':'M')+x(i)+' '+y(v);st=true;});
     if(d)svg.appendChild(el('path',{d,fill:'none',stroke:c,'stroke-width':2,'stroke-dasharray':dsh?'5 4':'','stroke-linejoin':'round'}));};
-  if(dash)draw(dash,'var(--aqua)',true); draw(vals,color,false);
+  if(dash)draw(dash,'var(--camp)',true); draw(vals,color,false);
   L.forEach((m,i)=>{if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:x(i),y:H-10,'text-anchor':'middle'});tx.textContent=mlabel(m);svg.appendChild(tx);}});
   svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
   const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
@@ -381,10 +382,10 @@ function renderTests(){const cc=document.getElementById('c-tests');let sm=cc.que
   const wrR3=wr.map((_,i)=>{const s=[wr[i],wr[i-1],wr[i-2]].filter(v=>v!=null);return i<2||s.length<3?null:Math.round(s.reduce((a,b)=>a+b,0)/3);});
   sm=document.createElement('div');sm.className='sm';
   const a=document.createElement('div');a.innerHTML='<div class="lab">Win rate % (dashed = 3-mo avg)</div>';const ac=document.createElement('div');a.appendChild(ac);
-  const b=document.createElement('div');b.innerHTML='<div class="lab">Tests concluded / month</div>';const bc=document.createElement('div');b.appendChild(bc);
+  const b=document.createElement('div');b.innerHTML='<div class="lab">Tests launched vs concluded / month</div><div class="legend" style="margin:-2px 0 4px"><span><i style="background:var(--aqua)"></i>Launched</span><span><i style="background:var(--flow)"></i>Concluded</span></div>';const bc=document.createElement('div');b.appendChild(bc);
   sm.appendChild(a);sm.appendChild(b);cc.appendChild(sm);
   miniLine(ac,cur,wr,'var(--flow)',v=>v+'%',wrR3);
-  miniCols(bc,cur,tconcluded,'var(--aqua)',v=>Math.round(v),'Concluded');}
+  miniCols2(bc,cur,tlaunched,tconcluded,'var(--aqua)','var(--flow)',v=>Math.round(v),'Launched','Concluded');}
 
 const NS='http://www.w3.org/2000/svg';
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
@@ -448,6 +449,21 @@ function miniCols(card,win,vals0,color,fmt,labhint){const[i0,i1]=win;const L=MON
     hit.addEventListener('mouseleave',()=>hideTip(card));svg.appendChild(hit);});
   svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));card.appendChild(svg);}
 
+function miniCols2(card,win,a0,b0,ca,cb,fmt,la,lb){const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1),A=a0.slice(i0,i1+1),B=b0.slice(i0,i1+1);
+  const W=520,H=170,PL=44,PR=10,PT=10,PB=26,iw=W-PL-PR,ih=H-PT-PB,n=L.length,step=iw/n,bw=step*0.32,gap=2;
+  const max=niceMax(Math.max(...A,...B,0));const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  const y=v=>PT+ih-(v/max)*ih,ev=lblEvery(n);
+  for(let g=0;g<=2;g++){const gv=max*g/2;svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(gv),y2:y(gv)}));
+    const tx=el('text',{class:'ax',x:PL-7,y:y(gv)+4,'text-anchor':'end'});tx.textContent=fmt(gv);svg.appendChild(tx);}
+  L.forEach((m,i)=>{const cx=PL+step*i+step/2,x1=cx-bw-gap/2,x2=cx+gap/2,ha=A[i]/max*ih,hb=B[i]/max*ih;
+    svg.appendChild(el('rect',{x:x1,y:PT+ih-ha,width:bw,height:Math.max(ha,0),rx:2,fill:ca}));
+    svg.appendChild(el('rect',{x:x2,y:PT+ih-hb,width:bw,height:Math.max(hb,0),rx:2,fill:cb}));
+    if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:cx,y:H-10,'text-anchor':'middle'});tx.textContent=mlabel(m);svg.appendChild(tx);}
+    const hit=el('rect',{x:PL+step*i,y:PT,width:step,height:ih,fill:'transparent'});
+    hit.addEventListener('mousemove',e=>showTip(card,e,mlabel(m),[[la,A[i],ca],[lb,B[i],cb]],fmt));
+    hit.addEventListener('mouseleave',()=>hideTip(card));svg.appendChild(hit);});
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));card.appendChild(svg);}
+
 function renderBoard(){const r=REPORT;const brand=(r&&r.name)||'—';
   const _pb=document.getElementById('p-brand');
   if(_pb){const _pi=new Image();_pi.className='clogo p-logo';_pi.alt=brand;
@@ -465,7 +481,7 @@ function clearDash(){document.querySelectorAll('#view-dash .card svg,#view-dash 
 function renderDash(){clearDash();const{cur}=windows();renderTiles();renderRpr();renderPor();renderTests();
   stackedCols('c-rev',cur);
   lineChart('c-total',cur,[{name:'Monthly',color:'var(--flow)',data:total},{name:'3-mo avg',color:'var(--camp)',data:roll3,dash:true}],kfmt);
-  lineChart('c-subs',cur,[{name:'New subs',color:'var(--flow)',data:subs},{name:'3-mo avg',color:'var(--aqua)',data:subsR3,dash:true}],nfmt);
+  lineChart('c-subs',cur,[{name:'New subs',color:'var(--flow)',data:subs},{name:'3-mo avg',color:'var(--camp)',data:subsR3,dash:true}],nfmt);
   lineChart('c-health',cur,[{name:'Unsub %',color:'var(--flow)',data:unsub},{name:'Spam %',color:'var(--camp)',data:spam}],v=>v.toFixed(2)+'%');
   lineChart('c-mix',cur,[{name:'Flow %',color:'var(--flow)',data:flowPct},{name:'Campaign %',color:'var(--camp)',data:campPct}],v=>v+'%',{yfmt:v=>v+'%'});
   const cc=document.getElementById('c-camp');let sm=cc.querySelector('.sm');if(sm)sm.remove();
