@@ -253,11 +253,11 @@
   </section>
 </div>
 
-<script type="module">
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+<script src="./vendor/supabase.js"></script>
+<script>
 const SB_URL='https://dxocfmwjwzzseepujfji.supabase.co'
 const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4b2NmbXdqd3p6c2VlcHVqZmppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMDYxODEsImV4cCI6MjEwMDc4MjE4MX0.id5f4bAwWHSYmIumwvSQ0X1g7R6PqUH-HnGs_5SKFq4'
-const supabase=createClient(SB_URL,SB_ANON)
+const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_ANON):null
 
 // ---- data globals (filled from Supabase) ----
 let MONTHS=[],flow=[],camp=[],subs=[],csends=[],crecip=[],unsub=[],spam=[],FLOWDATA=[],MI={};
@@ -428,15 +428,15 @@ function wireControls(){
     document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-selected',b===btn));const v=btn.dataset.view;
     document.getElementById('view-dash').hidden=v!=='dash';document.getElementById('view-board').hidden=v!=='board';}));
   document.getElementById('themeBtn').addEventListener('click',toggleTheme);
-  document.getElementById('outBtn').addEventListener('click',()=>supabase.auth.signOut().then(()=>location.reload()));
+  document.getElementById('outBtn').addEventListener('click',()=>sb.auth.signOut().then(()=>location.reload()));
   matchMedia('(prefers-color-scheme:dark)').addEventListener('change',renderDash);
 }
 
 // ---- boot ----
 async function loadAndRender(){
   const [ser,rep]=await Promise.all([
-    supabase.from('client_series').select('data').limit(1),
-    supabase.from('client_reports').select('data').order('month',{ascending:false}).limit(1),
+    sb.from('client_series').select('data').limit(1),
+    sb.from('client_reports').select('data').order('month',{ascending:false}).limit(1),
   ]);
   if(ser.error||!ser.data||!ser.data.length){
     document.getElementById('app').innerHTML='<div class="wrap" style="padding:60px 24px;color:var(--muted)">No dashboard data is available for your account yet.</div>';
@@ -453,14 +453,14 @@ function showLogin(){document.getElementById('app').hidden=true;document.getElem
 document.getElementById('lform').addEventListener('submit',async e=>{
   e.preventDefault();const btn=document.getElementById('lbtn'),err=document.getElementById('lerr');
   err.hidden=true;btn.disabled=true;btn.textContent='Signing in…';
-  const {error}=await supabase.auth.signInWithPassword({
+  const {error}=await sb.auth.signInWithPassword({
     email:document.getElementById('lemail').value,password:document.getElementById('lpass').value});
   btn.disabled=false;btn.textContent='Sign in';
   if(error){err.textContent=error.message;err.hidden=false;} else showApp();
 });
 
-const {data:{session}}=await supabase.auth.getSession();
-if(session) showApp(); else showLogin();
+if(!sb){const e=document.getElementById('lerr');e.textContent='Could not load the app (a script was blocked). Try a hard refresh, or a different network or browser.';e.hidden=false;}
+else sb.auth.getSession().then(({data})=>{ if(data.session) showApp(); else showLogin(); });
 </script>
 </body>
 </html>
