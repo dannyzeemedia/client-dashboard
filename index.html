@@ -433,7 +433,7 @@ function wireControls(){
 }
 
 // ---- boot ----
-async function loadAndRender(){
+async function loadAndRender(){ try{
   const [ser,rep]=await Promise.all([
     sb.from('client_series').select('data').limit(1),
     sb.from('client_reports').select('data').order('month',{ascending:false}).limit(1),
@@ -446,6 +446,7 @@ async function loadAndRender(){
   hydrate(ser.data[0].data);
   wireControls();
   renderDash();
+  }catch(e){document.getElementById('app').innerHTML='<div class="wrap" style="padding:60px 24px;color:var(--crit)">Dashboard failed to render: '+((e&&e.message)||e)+'</div>';console.error(e);}
 }
 function showApp(){document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;loadAndRender();}
 function showLogin(){document.getElementById('app').hidden=true;document.getElementById('login').hidden=false;}

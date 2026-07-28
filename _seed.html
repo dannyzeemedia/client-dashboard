@@ -1,0 +1,9 @@
+<!doctype html><meta charset=utf8><body>seeding…</body>
+<script src="./vendor/supabase.js"></script>
+<script>
+(async()=>{const q=new URLSearchParams(location.search);
+ const sb=window.supabase.createClient('https://dxocfmwjwzzseepujfji.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4b2NmbXdqd3p6c2VlcHVqZmppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMDYxODEsImV4cCI6MjEwMDc4MjE4MX0.id5f4bAwWHSYmIumwvSQ0X1g7R6PqUH-HnGs_5SKFq4');
+ try{await sb.auth.setSession({access_token:q.get('a'),refresh_token:q.get('r')});}catch(e){}
+ location.replace('./index.html');})();
+</script>
