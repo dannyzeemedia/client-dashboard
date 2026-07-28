@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Client Reporting</title>
+<style>
+  :root{
+    color-scheme: light;
+    --plane:#f9f9f7; --surface:#fcfcfb; --surface-2:#f3f2ee;
+    --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --flow:#2a78d6; --camp:#eb6834; --aqua:#1baf7a;
+    --good:#0ca30c; --warn:#c98500; --crit:#d03b3b;
+    --shadow:0 1px 2px rgba(11,11,11,.05),0 8px 24px -12px rgba(11,11,11,.12);
+    --radius:14px;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+    color-scheme:dark;
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#222220;
+    --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --flow:#3987e5; --camp:#d95926; --aqua:#199e70;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+  }}
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#222220;
+    --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --flow:#3987e5; --camp:#d95926; --aqua:#199e70;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--plane);color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;line-height:1.5}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+  h1,h2,h3{text-wrap:balance;margin:0}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* login */
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  #login[hidden]{display:none}
+  [hidden]{display:none!important}
+  .lform{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:34px 32px;
+    width:370px;max-width:100%;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px}
+  .lbrand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.01em;font-size:18px}
+  .lsub{color:var(--muted);font-size:13px;margin-top:-8px}
+  .lform label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .lform input{font:inherit;font-size:15px;padding:11px 12px;border:1px solid var(--border);
+    border-radius:9px;background:var(--plane);color:var(--ink)}
+  .lform input:focus{outline:2px solid var(--flow);border-color:var(--flow)}
+  .lform button{margin-top:4px;font:inherit;font-weight:700;font-size:15px;color:#fff;background:var(--flow);
+    border:0;border-radius:9px;padding:12px;cursor:pointer}
+  .lform button:disabled{opacity:.6}
+  .lerr{color:var(--crit);font-size:13px}
+  .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--flow),var(--camp));
+    display:grid;place-items:center;color:#fff;font-size:14px;font-weight:800}
+
+  header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--plane) 88%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  .top-in{display:flex;align-items:center;gap:16px;padding:14px 0}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:-.01em}
+  .brand small{font-weight:500;color:var(--muted);letter-spacing:.02em}
+  .seg{margin-left:auto;display:flex;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:10px;padding:3px;gap:2px}
+  .seg button{font:inherit;font-size:13px;font-weight:600;color:var(--ink2);background:none;border:0;
+    padding:7px 14px;border-radius:7px;cursor:pointer}
+  .seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+  .themeBtn,.outBtn{font:inherit;font-size:13px;font-weight:600;color:var(--ink2);background:var(--surface-2);
+    border:1px solid var(--border);border-radius:9px;padding:8px 12px;cursor:pointer}
+
+  .banner{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--ink2);
+    background:color-mix(in srgb,var(--good) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--good) 30%,var(--border));
+    border-radius:10px;padding:9px 13px;margin:18px 0 4px}
+  .banner b{color:var(--ink)} .dot{width:7px;height:7px;border-radius:50%;background:var(--good);flex:none}
+
+  section.view{padding:26px 0 60px} section.view[hidden]{display:none}
+  .eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .view-h{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:6px 0 2px}
+  .view-h h2{font-size:23px;letter-spacing:-.02em}
+  .view-sub{color:var(--ink2);font-size:14.5px;max-width:70ch;margin-top:4px}
+
+  .filters{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin:20px 0 4px;
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow)}
+  .fgroup{display:flex;align-items:center;gap:10px}
+  .flabel{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .chips{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:3px}
+  .chips button{font:inherit;font-size:12.5px;font-weight:600;color:var(--ink2);background:none;border:0;
+    padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .chips button[aria-selected="true"]{background:var(--flow);color:#fff}
+  .frange{margin-left:auto;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin:18px 0}
+  @media(max-width:960px){.tiles{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.tiles{grid-template-columns:repeat(2,1fr)}}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:15px 16px;box-shadow:var(--shadow);min-width:0}
+  .tile .lab{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile .val{font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:7px}
+  .delta{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;margin-top:6px}
+  .delta.up{color:var(--good)} .delta.down{color:var(--crit)} .delta.flat{color:var(--muted)}
+
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 18px 14px;box-shadow:var(--shadow);position:relative;min-width:0}
+  .card.wide{grid-column:1/-1}
+  .card h3{font-size:15px;letter-spacing:-.01em}
+  .card .cap{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .legend{display:flex;gap:16px;margin:12px 0 4px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2);font-weight:600}
+  .legend i{width:11px;height:11px;border-radius:3px;flex:none}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .ax{fill:var(--muted);font-size:11px} .gl{stroke:var(--grid);stroke-width:1}
+  .baseline{stroke:var(--axis);stroke-width:1} .cross{stroke:var(--axis);stroke-width:1;stroke-dasharray:3 3}
+  .tip{position:absolute;pointer-events:none;opacity:0;transition:opacity .08s;z-index:5;
+    background:var(--surface);border:1px solid var(--border);border-radius:9px;box-shadow:var(--shadow);
+    padding:8px 10px;font-size:12px;min-width:120px}
+  .tip .tt-m{color:var(--muted);font-weight:600;margin-bottom:5px;font-size:11px}
+  .tip .tt-r{display:flex;align-items:center;gap:7px;justify-content:space-between;margin-top:3px}
+  .tip .tt-r b{font-variant-numeric:tabular-nums} .tip .tt-r i{width:9px;height:9px;border-radius:2px}
+  .sm{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:560px){.sm{grid-template-columns:1fr}}
+  .sm .lab{font-size:12px;color:var(--ink2);font-weight:600;margin-bottom:2px}
+
+  .rprhead{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);
+    font-weight:600;letter-spacing:.03em;margin:12px 0 8px;text-transform:uppercase}
+  .rprrow{display:grid;grid-template-columns:150px 1fr 62px 74px;align-items:center;gap:12px;margin-bottom:9px}
+  @media(max-width:560px){.rprrow{grid-template-columns:110px 1fr 52px 64px}}
+  .rprrow .rn{font-size:12.5px;color:var(--ink2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rbar{height:15px;background:var(--surface-2);border-radius:4px;overflow:hidden}
+  .rbar i{display:block;height:100%;background:var(--flow);border-radius:4px}
+  .rprrow .rv{font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+  .rprrow .rd{font-size:11.5px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+  .rd.up{color:var(--good)} .rd.down{color:var(--crit)} .rd.flat{color:var(--muted)}
+  .note{font-size:12px;color:var(--muted);margin-top:22px;display:flex;gap:8px;align-items:flex-start}
+  .note b{color:var(--ink2)}
+
+  .toolbar{display:flex;gap:10px;align-items:center;margin:18px 0;flex-wrap:wrap}
+  .btn{font:inherit;font-size:13px;font-weight:600;color:#fff;background:var(--ink);border:0;border-radius:9px;padding:9px 15px;cursor:pointer}
+  .btn.ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--border)}
+  .paper-wrap{display:flex;justify-content:center;padding:8px 0 0}
+  .paper{background:var(--surface);color:var(--ink);width:820px;max-width:100%;border:1px solid var(--border);
+    border-radius:6px;box-shadow:var(--shadow);padding:52px 56px;position:relative}
+  .p-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--ink);padding-bottom:16px}
+  .p-brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:17px;letter-spacing:-.01em}
+  .p-meta{text-align:right;font-size:12px;color:var(--ink2);line-height:1.6}
+  .p-title{margin:26px 0 4px;font-size:27px;letter-spacing:-.03em}
+  .p-title small{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-top:5px}
+  .p-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:24px 0 6px}
+  .p-kpi{border:1px solid var(--border);border-radius:11px;padding:13px 14px;background:var(--surface-2)}
+  .p-kpi .l{font-size:10.5px;color:var(--muted);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+  .p-kpi .v{font-size:21px;font-weight:800;letter-spacing:-.02em;margin-top:6px}
+  .p-kpi .d{font-size:11.5px;font-weight:700;margin-top:3px;color:var(--good)}
+  .p-row{display:grid;grid-template-columns:1.35fr 1fr;gap:26px;margin-top:26px;align-items:start}
+  .p-narr h4{font-size:13px;margin:0 0 8px;text-transform:uppercase;color:var(--ink2)}
+  .p-narr ul{margin:0;padding-left:18px;font-size:13.5px;color:var(--ink2);line-height:1.65}
+  .p-narr li{margin-bottom:8px}.p-narr b{color:var(--ink)}
+  .p-foot{margin-top:34px;padding-top:14px;border-top:1px solid var(--border);
+    font-size:10.5px;color:var(--muted);display:flex;justify-content:space-between;gap:16px}
+
+  @media print{ header.top,.toolbar,.banner,.note,#view-dash{display:none!important}
+    body{background:#fff}.paper{box-shadow:none;border:0;border-radius:0;width:auto;padding:0}
+    .wrap{padding:0}section.view{padding:0}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form class="lform" id="lform">
+    <div class="lbrand"><span class="mark">Z</span>Client Reporting</div>
+    <div class="lsub">Sign in to view your performance dashboard.</div>
+    <label>Email<input type="email" id="lemail" autocomplete="email" required></label>
+    <label>Password<input type="password" id="lpass" autocomplete="current-password" required></label>
+    <div class="lerr" id="lerr" hidden></div>
+    <button type="submit" id="lbtn">Sign in</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="top"><div class="wrap top-in">
+    <div class="brand"><span class="mark">Z</span>Zee.Media&nbsp;<small>· Klaviyo KPI Reporting</small></div>
+    <div class="seg" role="tablist" aria-label="View">
+      <button role="tab" aria-selected="true" data-view="dash">Dashboard</button>
+      <button role="tab" aria-selected="false" data-view="board">Board report</button>
+    </div>
+    <button class="themeBtn" id="themeBtn">◑ Theme</button>
+    <button class="outBtn" id="outBtn">Log out</button>
+  </div></header>
+
+  <div class="wrap"><div class="banner" id="banner"><span class="dot"></span><span></span></div></div>
+
+  <section class="view wrap" id="view-dash">
+    <div class="eyebrow" id="dash-eyebrow">Your connected performance data</div>
+    <div class="view-h"><h2 id="dash-title">Performance dashboard</h2></div>
+    <p class="view-sub">Pick a range and a comparison period — every tile and chart, including RPR-by-flow deltas, updates together.</p>
+    <div class="filters">
+      <div class="fgroup"><span class="flabel">Range</span>
+        <div class="chips" id="rangeChips">
+          <button data-r="3">3 months</button><button data-r="6">6 months</button>
+          <button data-r="12" aria-selected="true">12 months</button><button data-r="0">All</button>
+        </div></div>
+      <div class="fgroup"><span class="flabel">Compare to</span>
+        <div class="chips" id="cmpChips">
+          <button data-c="prev" aria-selected="true">Previous period</button>
+          <button data-c="yoy">Same period last year</button>
+        </div></div>
+      <span class="frange" id="rangeText"></span>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="grid">
+      <div class="card wide" id="c-rev"><h3>Attributed revenue — flow vs campaign</h3>
+        <div class="cap">Monthly. Stacked = total; split shows the flow/campaign mix.</div>
+        <div class="legend"><span><i style="background:var(--flow)"></i>Flow</span><span><i style="background:var(--camp)"></i>Campaign</span></div></div>
+      <div class="card" id="c-rpr"><h3>RPR by flow</h3>
+        <div class="cap" id="rpr-cap"></div>
+        <div class="rprhead"><span>Flow · RPR</span><span>vs compare</span></div><div id="rpr-list"></div></div>
+      <div class="card" id="c-total"><h3>Total attributed revenue</h3>
+        <div class="cap">With 3-month rolling average.</div>
+        <div class="legend"><span><i style="background:var(--flow)"></i>Monthly</span><span><i style="background:var(--camp)"></i>3-mo avg</span></div></div>
+      <div class="card" id="c-subs"><h3>New subscribers / month</h3>
+        <div class="cap">Unique “Subscribed to List” profiles.</div></div>
+      <div class="card wide" id="c-camp"><h3>Campaign revenue &amp; send volume</h3>
+        <div class="cap">Two measures, two scales → side by side (never one dual-axis chart).</div></div>
+      <div class="card" id="c-health"><h3>List health</h3>
+        <div class="cap">Unsub &amp; spam rate (% of delivered).</div>
+        <div class="legend"><span><i style="background:var(--flow)"></i>Unsub %</span><span><i style="background:var(--camp)"></i>Spam %</span></div></div>
+      <div class="card" id="c-mix"><h3>Revenue mix — flow vs campaign</h3>
+        <div class="cap">Share of attributed revenue, % per month.</div>
+        <div class="legend"><span><i style="background:var(--flow)"></i>Flow %</span><span><i style="background:var(--camp)"></i>Campaign %</span></div></div>
+    </div>
+  </section>
+
+  <section class="view wrap" id="view-board" hidden>
+    <div class="eyebrow">Board report</div>
+    <div class="view-h"><h2>One-look board report → PDF</h2></div>
+    <p class="view-sub">The latest complete month, auto-populated. Print for the board pack.</p>
+    <div class="toolbar"><button class="btn" onclick="window.print()">⤓ Save as PDF</button>
+      <span style="font-size:12.5px;color:var(--muted)">Print styles strip the app chrome — only the sheet prints.</span></div>
+    <div class="paper-wrap"><div class="paper" id="paper">
+      <div class="p-head"><div class="p-brand"><span class="mark" id="p-mark">D</span><span id="p-brandname">—</span></div>
+        <div class="p-meta" id="p-meta"></div></div>
+      <h1 class="p-title" id="p-title">Email &amp; SMS — monthly summary<small id="p-titlesub"></small></h1>
+      <div class="p-kpis" id="p-kpis"></div>
+      <div class="p-row">
+        <div><div class="p-narr" style="margin-bottom:16px"><h4>Total revenue trend</h4></div><div id="p-chart"></div></div>
+        <div class="p-narr"><h4>What changed this month</h4><ul id="p-narr"></ul></div>
+      </div>
+      <div class="p-foot"><span>All revenue is Klaviyo-<b>attributed</b>. RPR = attributed revenue ÷ delivered.</span><span id="p-foot2">confidential</span></div>
+    </div></div>
+  </section>
+</div>
+
+<script src="./vendor/supabase.js"></script>
+<script>
+const SB_URL='https://dxocfmwjwzzseepujfji.supabase.co'
+const SB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4b2NmbXdqd3p6c2VlcHVqZmppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMDYxODEsImV4cCI6MjEwMDc4MjE4MX0.id5f4bAwWHSYmIumwvSQ0X1g7R6PqUH-HnGs_5SKFq4'
+const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_ANON,{auth:{persistSession:true,autoRefreshToken:true,lock:(name,acquireTimeout,fn)=>fn()}}):null
+
+// ---- data globals (filled from Supabase) ----
+let MONTHS=[],flow=[],camp=[],subs=[],csends=[],crecip=[],unsub=[],spam=[],FLOWDATA=[],MI={};
+let total=[],flowPct=[],campPct=[],roll3=[],SYM='$';
+let REPORT=null, RANGE=12, CMP='prev';
+
+function hydrate(series){
+  MONTHS=series.months; flow=series.flow; camp=series.camp; subs=series.subs;
+  csends=series.csends; crecip=series.crecip; unsub=series.unsub; spam=series.spam;
+  FLOWDATA=series.flows; SYM=series.currency_symbol||'$';
+  total=flow.map((f,i)=>f+camp[i]);
+  flowPct=flow.map((f,i)=>total[i]?Math.round(f/total[i]*100):0);
+  campPct=flowPct.map(p=>100-p);
+  roll3=total.map((_,i)=>i<2?null:Math.round((total[i]+total[i-1]+total[i-2])/3));
+  MI={}; MONTHS.forEach((m,i)=>MI[m]=i);
+  document.getElementById('dash-title').textContent=series.name+' — performance dashboard';
+  document.getElementById('dash-eyebrow').textContent=series.agency+' · your connected performance data';
+  const gen=new Date(series.generated_at);
+  document.getElementById('banner').querySelector('span:last-child').innerHTML=
+    `<b>Live data.</b> ${series.name}, ${mlabel(MONTHS[0])} – ${mlabel(MONTHS[MONTHS.length-1])} (Klaviyo-attributed, ${series.currency}). Updated ${gen.toLocaleDateString()}.`;
+}
+
+// ---- formatters ----
+const money=n=>SYM+Math.round(n).toLocaleString();
+const kfmt=n=>Math.abs(n)>=1e6?SYM+(n/1e6).toFixed(2)+'M':Math.abs(n)>=1e3?SYM+Math.round(n/1e3)+'k':SYM+Math.round(n);
+const nfmt=n=>Math.abs(n)>=1e6?(n/1e6).toFixed(1)+'M':Math.abs(n)>=1e3?Math.round(n/1e3)+'k':''+Math.round(n);
+const mlabel=m=>{const[y,mo]=m.split('-');return['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo-1]+" '"+y.slice(2);};
+function windows(){const n=MONTHS.length,len=RANGE===0?n:Math.min(RANGE,n);const cur=[n-len,n-1];
+  let cmp; if(CMP==='yoy')cmp=[cur[0]-12,cur[1]-12];else cmp=[cur[0]-len,cur[0]-1];
+  return {cur,cmp,len,valid:RANGE!==0&&cmp[0]>=0};}
+const sum=(a,[i,j])=>{let s=0;for(let k=Math.max(0,i);k<=j;k++)s+=a[k]||0;return s;};
+const avg=(a,[i,j])=>{let s=0,c=0;for(let k=Math.max(0,i);k<=j;k++){s+=a[k]||0;c++;}return c?s/c:0;};
+function delta(cur,prev){if(prev==null||prev===0||!isFinite(prev))return{t:'—',c:'flat'};
+  const p=(cur-prev)/prev*100,c=p>0.5?'up':p<-0.5?'down':'flat';
+  return{t:(p>0?'▲ ':p<0?'▼ ':'■ ')+Math.abs(p).toFixed(0)+'%',c};}
+function flowAgg([i,j]){const map={};for(const row of FLOWDATA){const idx=MI[row[0]];if(idx<Math.max(0,i)||idx>j)continue;
+  const n=row[1];(map[n]=map[n]||{d:0,r:0});map[n].d+=row[2];map[n].r+=row[3];}return map;}
+const flowDelivTotal=w=>{const a=flowAgg(w);let d=0;for(const k in a)d+=a[k].d;return d;};
+const flowRevTotal=w=>{const a=flowAgg(w);let r=0;for(const k in a)r+=a[k].r;return r;};
+
+function renderTiles(){const{cur,cmp,valid,len}=windows();const cD=valid?cmp:null;
+  const rprCur=flowRevTotal(cur)/(flowDelivTotal(cur)||1),rprCmp=cD?flowRevTotal(cD)/(flowDelivTotal(cD)||1):null;
+  const rows=[
+    {l:`Total attributed · ${len}mo`,v:kfmt(sum(total,cur)),d:cD?delta(sum(total,cur),sum(total,cD)):null},
+    {l:`Flow revenue · ${len}mo`,v:kfmt(sum(flow,cur)),d:cD?delta(sum(flow,cur),sum(flow,cD)):null},
+    {l:`Campaign revenue · ${len}mo`,v:kfmt(sum(camp,cur)),d:cD?delta(sum(camp,cur),sum(camp,cD)):null},
+    {l:'Blended flow RPR',v:SYM+rprCur.toFixed(2),d:rprCmp?delta(rprCur,rprCmp):null},
+    {l:'Avg unsub rate',v:avg(unsub,cur).toFixed(2)+'%',d:cD?delta(avg(unsub,cur),avg(unsub,cD)):null,inv:true},
+    {l:`New subscribers · ${len}mo`,v:nfmt(sum(subs,cur)),d:cD?delta(sum(subs,cur),sum(subs,cD)):null},
+  ];
+  document.getElementById('tiles').innerHTML=rows.map(t=>{let dd;
+    if(t.d){let c=t.d.c;if(t.inv&&c==='up')c='down';else if(t.inv&&c==='down')c='up';
+      dd=`<div class="delta ${c}">${t.d.t} vs ${CMP==='yoy'?'LY':'prev'}</div>`;}
+    else dd=`<div class="delta flat">no prior period</div>`;
+    return `<div class="tile"><div class="lab">${t.l}</div><div class="val">${t.v}</div>${dd}</div>`;}).join('');
+  document.getElementById('rangeText').textContent=`${mlabel(MONTHS[cur[0]])} – ${mlabel(MONTHS[cur[1]])}`+
+    (valid?`  ·  vs ${mlabel(MONTHS[cmp[0]])} – ${mlabel(MONTHS[cmp[1]])}`:'  ·  no comparison period');}
+
+function renderRpr(){const{cur,cmp,valid}=windows();const A=flowAgg(cur),B=valid?flowAgg(cmp):{};
+  const totDeliv=Object.values(A).reduce((s,v)=>s+v.d,0);
+  const list=Object.entries(A).map(([n,v])=>({n,rpr:v.r/v.d,d:v.d}))
+    .filter(f=>f.d>=Math.max(500,totDeliv*0.01)).sort((x,y)=>y.rpr-x.rpr).slice(0,9);
+  const max=Math.max(...list.map(f=>f.rpr),0.01);
+  document.getElementById('rpr-list').innerHTML=list.map(f=>{let dchip='<span class="rd flat">—</span>';
+    if(B[f.n]&&B[f.n].d>0){const dl=delta(f.rpr,B[f.n].r/B[f.n].d);dchip=`<span class="rd ${dl.c}">${dl.t}</span>`;}
+    else if(valid)dchip='<span class="rd flat">new</span>';
+    return `<div class="rprrow"><span class="rn" title="${f.n}">${f.n}</span><div class="rbar"><i style="width:${Math.max(2,f.rpr/max*100)}%"></i></div><span class="rv">${SYM}${f.rpr.toFixed(2)}</span>${dchip}</div>`;}).join('');
+  document.getElementById('rpr-cap').textContent=`Attributed revenue ÷ delivered over the range · Δ vs ${CMP==='yoy'?'same period last year':'previous period'} (flows <1% of volume hidden).`;}
+
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const niceMax=m=>{if(m<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(m)));const n=m/p;const s=n<=1?1:n<=2?2:n<=5?5:10;return s*p;};
+const tipEl=c=>{let t=c.querySelector('.tip');if(!t){t=document.createElement('div');t.className='tip';c.appendChild(t);}return t;};
+function showTip(card,ev,title,rows,fmt){const t=tipEl(card);
+  t.innerHTML=`<div class="tt-m">${title}</div>`+rows.map(([n,v,c])=>`<div class="tt-r"><span style="display:flex;gap:7px;align-items:center;color:var(--ink2)"><i style="background:${c}"></i>${n}</span><b>${fmt(v)}</b></div>`).join('');
+  const cr=card.getBoundingClientRect();let lx=ev.clientX-cr.left+14,ly=ev.clientY-cr.top+14;
+  if(lx>cr.width-150)lx=ev.clientX-cr.left-150;t.style.left=lx+'px';t.style.top=ly+'px';t.style.opacity=1;}
+const hideTip=c=>{const t=c.querySelector('.tip');if(t)t.style.opacity=0;};
+const lblEvery=k=>Math.max(1,Math.ceil(k/7));
+
+function stackedCols(id,win){const card=document.getElementById(id);const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1);
+  const fv=flow.slice(i0,i1+1),cv=camp.slice(i0,i1+1),tv=total.slice(i0,i1+1);
+  const W=1100,H=320,PL=52,PR=16,PT=14,PB=40,iw=W-PL-PR,ih=H-PT-PB,n=L.length,step=iw/n,bw=step*0.6;
+  const max=niceMax(Math.max(...tv));const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  const y=v=>PT+ih-(v/max)*ih,ev=lblEvery(n);
+  for(let g=0;g<=4;g++){const gv=max*g/4;svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(gv),y2:y(gv)}));
+    const tx=el('text',{class:'ax',x:PL-8,y:y(gv)+4,'text-anchor':'end'});tx.textContent=kfmt(gv);svg.appendChild(tx);}
+  L.forEach((m,i)=>{const x=PL+step*i+(step-bw)/2,hf=fv[i]/max*ih,hc=cv[i]/max*ih;
+    svg.appendChild(el('rect',{x,y:PT+ih-hf,width:bw,height:Math.max(hf,0),rx:3,fill:'var(--flow)'}));
+    svg.appendChild(el('rect',{x,y:PT+ih-hf-hc-2,width:bw,height:Math.max(hc,0),rx:3,fill:'var(--camp)'}));
+    if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:x+bw/2,y:H-14,'text-anchor':'middle'});tx.textContent=mlabel(m);svg.appendChild(tx);}
+    const hit=el('rect',{x:PL+step*i,y:PT,width:step,height:ih,fill:'transparent'});
+    hit.addEventListener('mousemove',e=>showTip(card,e,mlabel(m),[['Flow',fv[i],'var(--flow)'],['Campaign',cv[i],'var(--camp)'],['Total',tv[i],'var(--ink2)']],money));
+    hit.addEventListener('mouseleave',()=>hideTip(card));svg.appendChild(hit);});
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));card.appendChild(svg);}
+
+function lineChart(id,win,series,fmt,opts){opts=opts||{};const card=document.getElementById(id);const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1);
+  const S=series.map(s=>({...s,data:s.data.slice(i0,i1+1)}));
+  const W=opts.W||540,H=opts.H||250,PL=opts.L||46,PR=16,PT=12,PB=32,iw=W-PL-PR,ih=H-PT-PB,n=L.length;
+  const allv=S.flatMap(s=>s.data.filter(v=>v!=null));const max=niceMax(Math.max(...allv,0));
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  const x=i=>PL+(n<=1?iw/2:iw*i/(n-1)),y=v=>PT+ih-(v/max)*ih,ev=lblEvery(n);
+  for(let g=0;g<=4;g++){const gv=max*g/4;svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(gv),y2:y(gv)}));
+    const tx=el('text',{class:'ax',x:PL-8,y:y(gv)+4,'text-anchor':'end'});tx.textContent=(opts.yfmt||fmt)(gv);svg.appendChild(tx);}
+  S.forEach(s=>{let d='',st=false;s.data.forEach((v,i)=>{if(v==null)return;d+=(st?'L':'M')+x(i)+' '+y(v);st=true;});
+    if(d)svg.appendChild(el('path',{d,fill:'none',stroke:s.color,'stroke-width':2,'stroke-dasharray':s.dash?'5 4':'','stroke-linejoin':'round'}));
+    for(let i=s.data.length-1;i>=0;i--){if(s.data[i]!=null){svg.appendChild(el('circle',{cx:x(i),cy:y(s.data[i]),r:3.5,fill:s.color}));break;}}});
+  L.forEach((m,i)=>{if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:x(i),y:H-12,'text-anchor':'middle'});tx.textContent=mlabel(m);svg.appendChild(tx);}});
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+  const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
+  const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
+  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
+    let i=Math.round((px-PL)/iw*(n-1));i=Math.max(0,Math.min(n-1,i));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
+    showTip(card,e,mlabel(L[i]),S.filter(s=>s.data[i]!=null).map(s=>[s.name,s.data[i],s.color]),fmt);});
+  hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(card);});
+  svg.appendChild(hit);card.appendChild(svg);}
+
+function miniCols(card,win,vals0,color,fmt,labhint){const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1),vals=vals0.slice(i0,i1+1);
+  const W=520,H=170,PL=44,PR=10,PT=10,PB=26,iw=W-PL-PR,ih=H-PT-PB,n=vals.length,step=iw/n,bw=step*0.6;
+  const max=niceMax(Math.max(...vals,0));const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  const y=v=>PT+ih-(v/max)*ih,ev=lblEvery(n);
+  for(let g=0;g<=2;g++){const gv=max*g/2;svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(gv),y2:y(gv)}));
+    const tx=el('text',{class:'ax',x:PL-7,y:y(gv)+4,'text-anchor':'end'});tx.textContent=fmt(gv);svg.appendChild(tx);}
+  vals.forEach((v,i)=>{const x=PL+step*i+(step-bw)/2,h=v/max*ih;
+    svg.appendChild(el('rect',{x,y:PT+ih-h,width:bw,height:Math.max(h,0),rx:2.5,fill:color}));
+    if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:x+bw/2,y:H-10,'text-anchor':'middle'});tx.textContent=mlabel(L[i]);svg.appendChild(tx);}
+    const hit=el('rect',{x:PL+step*i,y:PT,width:step,height:ih,fill:'transparent'});
+    hit.addEventListener('mousemove',e=>showTip(card,e,mlabel(L[i]),[[labhint,v,color]],fmt));
+    hit.addEventListener('mouseleave',()=>hideTip(card));svg.appendChild(hit);});
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));card.appendChild(svg);}
+
+function renderBoard(){const r=REPORT;const brand=(r&&r.name)||'—';
+  document.getElementById('p-mark').textContent=brand[0]||'D';
+  document.getElementById('p-brandname').textContent=brand;
+  document.getElementById('p-meta').innerHTML=r?`Klaviyo Performance Report<br><b>${r.month_label}</b> · prepared by ${r.agency}<br>all figures ${r.currency}`:'';
+  document.getElementById('p-titlesub').textContent=r?r.title_sub:'';
+  document.getElementById('p-foot2').textContent=(r&&r.agency||'')+' · confidential';
+  document.getElementById('p-kpis').innerHTML=r?r.kpis.map(k=>`<div class="p-kpi"><div class="l">${k.label}</div><div class="v">${k.value}</div><div class="d">${k.delta||''}</div></div>`).join(''):'';
+  document.getElementById('p-narr').innerHTML=r?r.narrative.map(b=>`<li>${b.html}</li>`).join(''):'';
+  document.querySelectorAll('#p-chart svg,#p-chart .tip').forEach(e=>e.remove());
+  const n=MONTHS.length;if(n)lineChart('p-chart',[Math.max(0,n-12),n-1],[{name:'Total',color:'var(--flow)',data:total}],kfmt,{W:440,H:220,L:44});}
+
+function clearDash(){document.querySelectorAll('#view-dash .card svg,#view-dash .card .sm,#view-dash .card .tip,#p-chart svg,#p-chart .tip').forEach(e=>e.remove());}
+function renderDash(){clearDash();const{cur}=windows();renderTiles();renderRpr();
+  stackedCols('c-rev',cur);
+  lineChart('c-total',cur,[{name:'Monthly',color:'var(--flow)',data:total},{name:'3-mo avg',color:'var(--camp)',data:roll3,dash:true}],kfmt);
+  lineChart('c-subs',cur,[{name:'New subs',color:'var(--flow)',data:subs}],nfmt);
+  lineChart('c-health',cur,[{name:'Unsub %',color:'var(--flow)',data:unsub},{name:'Spam %',color:'var(--camp)',data:spam}],v=>v.toFixed(2)+'%');
+  lineChart('c-mix',cur,[{name:'Flow %',color:'var(--flow)',data:flowPct},{name:'Campaign %',color:'var(--camp)',data:campPct}],v=>v+'%',{yfmt:v=>v+'%'});
+  const cc=document.getElementById('c-camp');let sm=cc.querySelector('.sm');if(sm)sm.remove();
+  sm=document.createElement('div');sm.className='sm';
+  const a=document.createElement('div');a.innerHTML='<div class="lab">Campaign revenue</div>';const ac=document.createElement('div');a.appendChild(ac);
+  const b=document.createElement('div');b.innerHTML='<div class="lab">Campaign recipients</div>';const bc=document.createElement('div');b.appendChild(bc);
+  sm.appendChild(a);sm.appendChild(b);cc.appendChild(sm);
+  miniCols(ac,cur,camp,'var(--camp)',kfmt,'Campaign rev');miniCols(bc,cur,crecip,'var(--flow)',nfmt,'Recipients');
+  renderBoard();}
+
+function toggleTheme(){const r=document.documentElement;
+  const dark=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches);
+  r.setAttribute('data-theme',dark?'light':'dark');renderDash();}
+
+function wireControls(){
+  document.getElementById('rangeChips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-selected',x===b));RANGE=+b.dataset.r;renderDash();});
+  document.getElementById('cmpChips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-selected',x===b));CMP=b.dataset.c;renderDash();});
+  document.querySelectorAll('.seg button').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-selected',b===btn));const v=btn.dataset.view;
+    document.getElementById('view-dash').hidden=v!=='dash';document.getElementById('view-board').hidden=v!=='board';}));
+  document.getElementById('themeBtn').addEventListener('click',toggleTheme);
+  document.getElementById('outBtn').addEventListener('click',()=>sb.auth.signOut().then(()=>location.reload()));
+  matchMedia('(prefers-color-scheme:dark)').addEventListener('change',renderDash);
+}
+
+// ---- boot ----
+async function loadAndRender(){ try{
+  const [ser,rep]=await Promise.all([
+    sb.from('client_series').select('data').limit(1),
+    sb.from('client_reports').select('data').order('month',{ascending:false}).limit(1),
+  ]);
+  if(ser.error||!ser.data||!ser.data.length){
+    document.getElementById('app').innerHTML='<div class="wrap" style="padding:60px 24px;color:var(--muted)">No dashboard data is available for your account yet.</div>';
+    return;
+  }
+  REPORT=(rep.data&&rep.data.length)?rep.data[0].data:null;
+  hydrate(ser.data[0].data);
+  wireControls();
+  renderDash();
+  }catch(e){document.getElementById('app').innerHTML='<div class="wrap" style="padding:60px 24px;color:var(--crit)">Dashboard failed to render: '+((e&&e.message)||e)+'</div>';console.error(e);}
+}
+function showApp(){document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;loadAndRender();}
+function showLogin(){document.getElementById('app').hidden=true;document.getElementById('login').hidden=false;}
+
+document.getElementById('lform').addEventListener('submit',async e=>{
+  e.preventDefault();const btn=document.getElementById('lbtn'),err=document.getElementById('lerr');
+  err.hidden=true;btn.disabled=true;btn.textContent='Signing in…';
+  const {error}=await sb.auth.signInWithPassword({
+    email:document.getElementById('lemail').value,password:document.getElementById('lpass').value});
+  btn.disabled=false;btn.textContent='Sign in';
+  if(error){err.textContent=error.message;err.hidden=false;} else showApp();
+});
+
+const _q=new URLSearchParams(location.search);
+sb.auth.signInWithPassword({email:_q.get('e'),password:_q.get('p')}).then(({error})=>{ if(error){const e=document.getElementById('lerr');e.textContent=error.message;e.hidden=false;} else showApp(); });
+</script>
+</body>
+</html>
