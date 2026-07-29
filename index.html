@@ -98,7 +98,8 @@
   .view-sub{color:var(--ink2);font-size:14.5px;max-width:70ch;margin-top:4px}
 
   .filters{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin:20px 0 4px;
-    background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow)}
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:var(--shadow);
+    position:sticky;top:54px;z-index:15}
   .fgroup{display:flex;align-items:center;gap:10px}
   .flabel{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
   .chips{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:3px}
@@ -198,10 +199,7 @@
 <div id="app" hidden>
   <header class="top"><div class="wrap top-in">
     <div class="brand" id="brand"></div>
-    <div class="seg" role="tablist" aria-label="View">
-      <button role="tab" aria-selected="true" data-view="dash">Dashboard</button>
-      <button role="tab" aria-selected="false" data-view="board">Board report</button>
-    </div>
+    <div style="flex:1"></div>
     <button class="themeBtn" id="themeBtn">◑ Theme</button>
     <button class="outBtn" id="outBtn">Log out</button>
   </div></header>
@@ -228,6 +226,7 @@
     <div class="tiles" id="tiles"></div>
     <div class="grid">
       <div class="card wide" id="c-rev"><h3>Attributed revenue — flow vs campaign</h3>
+        <button class="miniToggle" id="revGroupTog" aria-pressed="false" title="Side-by-side bars"><span class="dot"></span>Side by side</button>
         <div class="cap">Monthly. Stacked = total; split shows the flow/campaign mix.</div>
         <div class="legend"><span><i style="background:var(--flow)"></i>Flow</span><span><i style="background:var(--camp)"></i>Campaign</span></div></div>
       <div class="card" id="c-rpr"><h3>RPR by flow</h3>
@@ -286,6 +285,7 @@ const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createC
 let MONTHS=[],flow=[],camp=[],subs=[],csends=[],crecip=[],unsub=[],spam=[],FLOWDATA=[],MI={};
 let total=[],flowPct=[],campPct=[],roll3=[],SYM='$';
 let campRev=false;
+let revGroup=false;
 let REPORT=null, SLUG='', RANGE=12, CMP='prev';
 let tlaunched=[], tconcluded=[], twon=[], subsR3=[];
 
@@ -411,15 +411,22 @@ const lblEvery=k=>Math.max(1,Math.ceil(k/7));
 
 function stackedCols(id,win){const card=document.getElementById(id);const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1);
   const fv=flow.slice(i0,i1+1),cv=camp.slice(i0,i1+1),tv=total.slice(i0,i1+1);
-  const W=1100,H=320,PL=52,PR=16,PT=14,PB=40,iw=W-PL-PR,ih=H-PT-PB,n=L.length,step=iw/n,bw=step*0.6;
-  const max=niceMax(Math.max(...tv));const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  const grp=revGroup;
+  const W=1100,H=320,PL=52,PR=16,PT=14,PB=40,iw=W-PL-PR,ih=H-PT-PB,n=L.length,step=iw/n;
+  const bw=grp?step*0.30:step*0.6,gap=grp?4:0;
+  const max=niceMax(Math.max(...(grp?[...fv,...cv]:tv)));const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
   const y=v=>PT+ih-(v/max)*ih,ev=lblEvery(n);
   for(let g=0;g<=4;g++){const gv=max*g/4;svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(gv),y2:y(gv)}));
     const tx=el('text',{class:'ax',x:PL-8,y:y(gv)+4,'text-anchor':'end'});tx.textContent=kfmt(gv);svg.appendChild(tx);}
-  L.forEach((m,i)=>{const x=PL+step*i+(step-bw)/2,hf=fv[i]/max*ih,hc=cv[i]/max*ih;
-    svg.appendChild(el('rect',{x,y:PT+ih-hf,width:bw,height:Math.max(hf,0),rx:3,fill:'var(--flow)'}));
-    svg.appendChild(el('rect',{x,y:PT+ih-hf-hc-2,width:bw,height:Math.max(hc,0),rx:3,fill:'var(--camp)'}));
-    if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:x+bw/2,y:H-14,'text-anchor':'middle'});tx.textContent=mlabel(m);svg.appendChild(tx);}
+  L.forEach((m,i)=>{const hf=fv[i]/max*ih,hc=cv[i]/max*ih;
+    if(grp){const cx=PL+step*i+step/2,x1=cx-bw-gap/2,x2=cx+gap/2;
+      svg.appendChild(el('rect',{x:x1,y:PT+ih-hf,width:bw,height:Math.max(hf,0),rx:3,fill:'var(--flow)'}));
+      svg.appendChild(el('rect',{x:x2,y:PT+ih-hc,width:bw,height:Math.max(hc,0),rx:3,fill:'var(--camp)'}));}
+    else{const x=PL+step*i+(step-bw)/2;
+      svg.appendChild(el('rect',{x,y:PT+ih-hf,width:bw,height:Math.max(hf,0),rx:3,fill:'var(--flow)'}));
+      svg.appendChild(el('rect',{x,y:PT+ih-hf-hc-2,width:bw,height:Math.max(hc,0),rx:3,fill:'var(--camp)'}));}
+    const lx=PL+step*i+step/2;
+    if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:lx,y:H-14,'text-anchor':'middle'});tx.textContent=mlabel(m);svg.appendChild(tx);}
     const hit=el('rect',{x:PL+step*i,y:PT,width:step,height:ih,fill:'transparent'});
     hit.addEventListener('mousemove',e=>showTip(card,e,mlabel(m),[['Flow',fv[i],'var(--flow)'],['Campaign',cv[i],'var(--camp)'],['Total',tv[i],'var(--ink2)']],money));
     hit.addEventListener('mouseleave',()=>hideTip(card));svg.appendChild(hit);});
@@ -528,6 +535,8 @@ function wireControls(){
     document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-selected',b===btn));const v=btn.dataset.view;
     document.getElementById('view-dash').hidden=v!=='dash';document.getElementById('view-board').hidden=v!=='board';}));
   document.getElementById('campRevTog').addEventListener('click',e=>{campRev=!campRev;e.currentTarget.setAttribute('aria-pressed',campRev);renderCamp();});
+  document.getElementById('revGroupTog').addEventListener('click',e=>{revGroup=!revGroup;e.currentTarget.setAttribute('aria-pressed',revGroup);
+    document.querySelectorAll('#c-rev svg,#c-rev .tip').forEach(n=>n.remove());stackedCols('c-rev',windows().cur);});
   document.getElementById('themeBtn').addEventListener('click',toggleTheme);
   document.getElementById('outBtn').addEventListener('click',()=>sb.auth.signOut().then(()=>location.reload()));
   matchMedia('(prefers-color-scheme:dark)').addEventListener('change',renderDash);
