@@ -345,8 +345,13 @@ function applyMode(){
   flowPct=flow.map((f,i)=>total[i]?Math.round(f/total[i]*100):0);
   campPct=flowPct.map(p=>100-p);
   const last=total.length-1;
-  roll3=total.map((_,i)=>(on&&i===last)?null:(i<2?null:Math.round((total[i]+total[i-1]+total[i-2])/3)));
-  subsR3=subs.map((_,i)=>(on&&i===subs.length-1)?null:(i<2?null:Math.round((subs[i]+subs[i-1]+subs[i-2])/3)));
+  // current-month contribution to the rolling averages uses the PROJECTED full
+  // month (not the partial MTD), so the dashed line connects smoothly instead of
+  // dipping or stopping short.
+  const pTot=on&&CUR.proj?CUR.proj.flow+CUR.proj.camp:(total[last]||0);
+  const pSub=on&&CUR.proj?CUR.proj.subs:(subs[last]||0);
+  roll3=total.map((_,i)=>{if(i<2)return null;const t0=(on&&i===last)?pTot:total[i];return Math.round((t0+total[i-1]+total[i-2])/3);});
+  subsR3=subs.map((_,i)=>{if(i<2)return null;const s0=(on&&i===last)?pSub:subs[i];return Math.round((s0+subs[i-1]+subs[i-2])/3);});
   MI={}; MONTHS.forEach((m,i)=>MI[m]=i);
   IP=on?{idx:MONTHS.length-1,project:!!CUR.project,proj:CUR.proj,mtd:CUR.mtd,
          days:CUR.days_complete,dim:CUR.days_in_month,asOf:CUR.as_of,tests:ct}:null;
@@ -501,7 +506,7 @@ function lineChart(id,win,series,fmt,opts){opts=opts||{};const card=document.get
   S.forEach(s=>{let d='',st=false;s.data.forEach((v,i)=>{if(v==null)return;d+=(st?'L':'M')+x(i)+' '+y(v);st=true;});
     if(d)svg.appendChild(el('path',{d,fill:'none',stroke:s.color,'stroke-width':2,'stroke-dasharray':s.dash?'5 4':'','stroke-linejoin':'round'}));
     for(let i=s.data.length-1;i>=0;i--){if(s.data[i]!=null){svg.appendChild(el('circle',{cx:x(i),cy:y(s.data[i]),r:3.5,fill:s.color}));break;}}});
-  if(ipK>=0)S.forEach((s,si)=>{const v=s.data[ipK];if(v==null)return;
+  if(ipK>=0)S.forEach((s,si)=>{if(s.dash)return;const v=s.data[ipK];if(v==null)return;   // rings on solid series only
     svg.appendChild(el('circle',{cx:x(ipK),cy:y(v),r:4.2,fill:'var(--surface)',stroke:s.color,'stroke-width':2}));  // in-progress: hollow ring
     const pv=(ip.proj||[])[si];
     if(ip.project&&pv!=null){svg.appendChild(el('line',{x1:x(ipK),x2:x(ipK),y1:y(v),y2:y(pv),stroke:s.color,'stroke-width':1.5,'stroke-dasharray':'4 3',opacity:.85}));
