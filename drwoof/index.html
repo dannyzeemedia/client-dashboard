@@ -633,15 +633,15 @@ function renderIpNote(){const el=document.getElementById('ipnote');
 
 function renderCamp(){const{cur}=windows();const cc=document.getElementById('c-camp');let sm=cc.querySelector('.sm');if(sm)sm.remove();
   sm=document.createElement('div');sm.className='sm';
-  const revLab=campRev?'<div class="lab">Campaign sends <span style="color:var(--flow)">· revenue overlay</span></div>':'<div class="lab">Campaign sends</div>';
+  const revLab=campRev?'<div class="lab">Campaign sends <span style="color:var(--aqua)">· revenue overlay</span></div>':'<div class="lab">Campaign sends</div>';
   const a=document.createElement('div');a.innerHTML=revLab;const ac=document.createElement('div');a.appendChild(ac);
-  const b=document.createElement('div');b.innerHTML=campRev?'<div class="lab">Campaign recipients <span style="color:var(--flow)">· revenue overlay</span></div>':'<div class="lab">Campaign recipients</div>';const bc=document.createElement('div');b.appendChild(bc);
+  const b=document.createElement('div');b.innerHTML=campRev?'<div class="lab">Campaign recipients <span style="color:var(--aqua)">· revenue overlay</span></div>':'<div class="lab">Campaign recipients</div>';const bc=document.createElement('div');b.appendChild(bc);
   sm.appendChild(a);sm.appendChild(b);cc.appendChild(sm);
-  const area=campRev?{data:camp,color:'var(--flow)',label:'Campaign rev',fmt:money,proj:IP?IP.proj.camp:null}:null;
+  const area=campRev?{data:camp,color:'var(--aqua)',label:'Campaign rev',fmt:money,proj:IP?IP.proj.camp:null}:null;
   const ipSend=IP?{idx:IP.idx,project:IP.project,proj:IP.proj.csends}:null;
   const ipRec=IP?{idx:IP.idx,project:IP.project,proj:IP.proj.crecip}:null;
   miniCols(ac,cur,csends,'var(--camp)',v=>Math.round(v),'Sends',area,ipSend);
-  miniCols(bc,cur,crecip,'var(--camp)',nfmt,'Recipients',area,ipRec);}
+  miniCols(bc,cur,crecip,'var(--flow)',nfmt,'Recipients',area,ipRec);}
 
 function renderSms(){const{cur}=windows();const cc=document.getElementById('c-sms');let sm=cc.querySelector('.sm');if(sm)sm.remove();
   sm=document.createElement('div');sm.className='sm';
