@@ -360,7 +360,7 @@ function renderPor(){const{cur,cmp,valid}=windows();const A=flowAgg(cur),B=valid
     return `<div class="rprrow"><span class="rn" title="${f.n}">${f.n}</span><div class="rbar"><i style="width:${Math.max(2,f.por/max*100)}%"></i></div><span class="rv">${f.por.toFixed(2)}%</span>${dchip}</div>`;}).join('');
   document.getElementById('por-cap').textContent=`Placed orders ÷ delivered over the range · Δ vs ${CMP==='yoy'?'same period last year':'previous period'} (flows <1% of volume hidden).`;}
 
-function miniLine(card,win,vals0,color,fmt,dash0){const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1),vals=vals0.slice(i0,i1+1);
+function miniLine(card,win,vals0,color,fmt,dash0,lab){const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1),vals=vals0.slice(i0,i1+1);
   const dash=dash0?dash0.slice(i0,i1+1):null;
   const W=520,H=170,PL=44,PR=10,PT=10,PB=26,iw=W-PL-PR,ih=H-PT-PB,n=vals.length;
   const max=niceMax(Math.max(...vals.filter(v=>v!=null),...(dash||[]).filter(v=>v!=null),0));
@@ -373,7 +373,7 @@ function miniLine(card,win,vals0,color,fmt,dash0){const[i0,i1]=win;const L=MONTH
   L.forEach((m,i)=>{if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:x(i),y:H-10,'text-anchor':'middle'});tx.textContent=mlabel(m);svg.appendChild(tx);}});
   svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
   const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
-  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;let i=Math.round((px-PL)/iw*(n-1));i=Math.max(0,Math.min(n-1,i));if(vals[i]!=null)showTip(card,e,mlabel(L[i]),[['',vals[i],color]],fmt);});
+  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;let i=Math.round((px-PL)/iw*(n-1));i=Math.max(0,Math.min(n-1,i));if(vals[i]!=null){const rows=[[lab||'',vals[i],color]];if(dash&&dash[i]!=null)rows.push(['3-mo avg',dash[i],'var(--camp)']);showTip(card,e,mlabel(L[i]),rows,fmt);}});
   hit.addEventListener('mouseleave',()=>hideTip(card));svg.appendChild(hit);card.appendChild(svg);}
 
 function renderTests(){const cc=document.getElementById('c-tests');let sm=cc.querySelector('.sm');if(sm)sm.remove();
@@ -381,10 +381,10 @@ function renderTests(){const cc=document.getElementById('c-tests');let sm=cc.que
   const wr=twon.map((w,i)=>tconcluded[i]?Math.round(w/tconcluded[i]*100):null);
   const wrR3=wr.map((_,i)=>{const s=[wr[i],wr[i-1],wr[i-2]].filter(v=>v!=null);return i<2||s.length<3?null:Math.round(s.reduce((a,b)=>a+b,0)/3);});
   sm=document.createElement('div');sm.className='sm';
-  const a=document.createElement('div');a.innerHTML='<div class="lab">Win rate % (dashed = 3-mo avg)</div>';const ac=document.createElement('div');a.appendChild(ac);
+  const a=document.createElement('div');a.innerHTML='<div class="lab">Win rate %</div><div class="legend" style="margin:-2px 0 4px"><span><i style="background:var(--flow)"></i>Win rate</span><span><i style="background:var(--camp)"></i>3-mo avg</span></div>';const ac=document.createElement('div');a.appendChild(ac);
   const b=document.createElement('div');b.innerHTML='<div class="lab">Tests launched vs concluded / month</div><div class="legend" style="margin:-2px 0 4px"><span><i style="background:var(--camp)"></i>Launched</span><span><i style="background:var(--flow)"></i>Concluded</span></div>';const bc=document.createElement('div');b.appendChild(bc);
   sm.appendChild(a);sm.appendChild(b);cc.appendChild(sm);
-  miniLine(ac,cur,wr,'var(--flow)',v=>v+'%',wrR3);
+  miniLine(ac,cur,wr,'var(--flow)',v=>v+'%',wrR3,'Win rate');
   miniCols2(bc,cur,tlaunched,tconcluded,'var(--camp)','var(--flow)',v=>Math.round(v),'Launched','Concluded');}
 
 const NS='http://www.w3.org/2000/svg';
