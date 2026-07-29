@@ -653,10 +653,17 @@ function renderSms(){const{cur}=windows();const cc=document.getElementById('c-sm
   miniCols(bc,cur,smsDeliv,'var(--flow)',nfmt,'Delivered',null,ipD);
   const u=CUR&&CUR.sms_usage,cap=document.getElementById('sms-cap');
   const head='Klaviyo-attributed SMS revenue &amp; messages delivered per month. SMS runs in flows today (no SMS campaigns yet). ';
+  let out=head;
   if(u&&u.max){const pct=Math.round(u.used/u.max*100),f=d=>new Date(d).toLocaleDateString(undefined,{month:'short',day:'numeric'});
-    const spend=u.plan_aud?`${money(u.used/u.max*u.plan_aud)} of ${money(u.plan_aud)} · `:'';
-    cap.innerHTML=head+`<b>SMS spend this billing cycle (${f(u.period_start)}–${f(u.period_end)}): ${spend}${Math.round(u.used).toLocaleString()} of ${u.max.toLocaleString()} credits (${pct}%).</b>`;}
-  else cap.innerHTML=head;}
+    const spend=u.plan_aud?`${money(u.used/u.max*u.plan_aud)} of ${money(u.plan_aud)}, `:'';
+    out+=`<b>SMS spend this billing cycle (${f(u.period_start)}–${f(u.period_end)}): ${spend}${Math.round(u.used).toLocaleString()} of ${u.max.toLocaleString()} credits (${pct}%).</b>`;
+    if(u.plan_aud){
+      const rev=IP?CUR.proj.rsms:(Brsms.length?Brsms[Brsms.length-1]:0);
+      const lbl=IP?(mlabel(CUR.month)+' projected'):(BM.length?mlabel(BM[BM.length-1]):'last month');
+      const roas=rev/u.plan_aud;
+      out+=` <b style="color:var(--good)">Return on SMS plan: ~${money(rev)} attributed (${lbl}) vs the ${money(u.plan_aud)}/mo plan, ≈ ${roas.toFixed(1)}× ROAS.</b>`;}
+  }
+  cap.innerHTML=out;}
 
 function toggleTheme(){const r=document.documentElement;
   const dark=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches);
