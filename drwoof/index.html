@@ -654,7 +654,8 @@ function renderSms(){const{cur}=windows();const cc=document.getElementById('c-sm
   const u=CUR&&CUR.sms_usage,cap=document.getElementById('sms-cap');
   const head='Klaviyo-attributed SMS revenue &amp; messages delivered per month. SMS runs in flows today (no SMS campaigns yet). ';
   if(u&&u.max){const pct=Math.round(u.used/u.max*100),f=d=>new Date(d).toLocaleDateString(undefined,{month:'short',day:'numeric'});
-    cap.innerHTML=head+`<b>This billing cycle (${f(u.period_start)}–${f(u.period_end)}): ${Math.round(u.used).toLocaleString()} of ${u.max.toLocaleString()} SMS credits used (${pct}%).</b>`;}
+    const spend=u.plan_aud?`${money(u.used/u.max*u.plan_aud)} of ${money(u.plan_aud)} · `:'';
+    cap.innerHTML=head+`<b>SMS spend this billing cycle (${f(u.period_start)}–${f(u.period_end)}): ${spend}${Math.round(u.used).toLocaleString()} of ${u.max.toLocaleString()} credits (${pct}%).</b>`;}
   else cap.innerHTML=head;}
 
 function toggleTheme(){const r=document.documentElement;
