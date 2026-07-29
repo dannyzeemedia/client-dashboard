@@ -382,10 +382,10 @@ function renderTests(){const cc=document.getElementById('c-tests');let sm=cc.que
   const wrR3=wr.map((_,i)=>{const s=[wr[i],wr[i-1],wr[i-2]].filter(v=>v!=null);return i<2||s.length<3?null:Math.round(s.reduce((a,b)=>a+b,0)/3);});
   sm=document.createElement('div');sm.className='sm';
   const a=document.createElement('div');a.innerHTML='<div class="lab">Win rate % (dashed = 3-mo avg)</div>';const ac=document.createElement('div');a.appendChild(ac);
-  const b=document.createElement('div');b.innerHTML='<div class="lab">Tests launched vs concluded / month</div><div class="legend" style="margin:-2px 0 4px"><span><i style="background:var(--aqua)"></i>Launched</span><span><i style="background:var(--flow)"></i>Concluded</span></div>';const bc=document.createElement('div');b.appendChild(bc);
+  const b=document.createElement('div');b.innerHTML='<div class="lab">Tests launched vs concluded / month</div><div class="legend" style="margin:-2px 0 4px"><span><i style="background:var(--camp)"></i>Launched</span><span><i style="background:var(--flow)"></i>Concluded</span></div>';const bc=document.createElement('div');b.appendChild(bc);
   sm.appendChild(a);sm.appendChild(b);cc.appendChild(sm);
   miniLine(ac,cur,wr,'var(--flow)',v=>v+'%',wrR3);
-  miniCols2(bc,cur,tlaunched,tconcluded,'var(--aqua)','var(--flow)',v=>Math.round(v),'Launched','Concluded');}
+  miniCols2(bc,cur,tlaunched,tconcluded,'var(--camp)','var(--flow)',v=>Math.round(v),'Launched','Concluded');}
 
 const NS='http://www.w3.org/2000/svg';
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
