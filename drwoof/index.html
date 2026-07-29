@@ -85,6 +85,8 @@
   .miniToggle[aria-pressed="true"]{color:var(--ink);border-color:var(--camp)}
   .miniToggle[aria-pressed="true"] .dot{background:var(--camp)}
   .miniToggle[aria-pressed="true"] .dot::after{left:11px}
+  .mtwrap{position:absolute;top:14px;right:16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .mtwrap .miniToggle{position:static}
   .togBtn{font:inherit;font-size:12.5px;font-weight:600;color:var(--ink2);background:var(--surface-2);
     border:1px solid var(--border);border-radius:20px;padding:6px 12px 6px 9px;cursor:pointer;
     display:inline-flex;gap:7px;align-items:center;line-height:1;white-space:nowrap}
@@ -239,10 +241,13 @@
     <div class="ipnote" id="ipnote" hidden></div>
     <div class="tiles" id="tiles"></div>
     <div class="grid">
-      <div class="card wide" id="c-rev"><h3>Attributed revenue — flow vs campaign</h3>
-        <button class="miniToggle" id="revGroupTog" aria-pressed="false" title="Side-by-side bars"><span class="dot"></span>Side by side</button>
-        <div class="cap">Monthly. Stacked = total; split shows the flow/campaign mix.</div>
-        <div class="legend"><span><i style="background:var(--flow)"></i>Flow</span><span><i style="background:var(--camp)"></i>Campaign</span></div></div>
+      <div class="card wide" id="c-rev"><h3 id="crev-title">Attributed revenue — flow vs campaign</h3>
+        <div class="mtwrap">
+          <button class="miniToggle" id="revChanTog" aria-pressed="false" title="Break out by channel (email vs SMS)"><span class="dot"></span>Email vs SMS</button>
+          <button class="miniToggle" id="revGroupTog" aria-pressed="false" title="Side-by-side bars"><span class="dot"></span>Side by side</button>
+        </div>
+        <div class="cap">Monthly. Stacked = total; split shows the mix.</div>
+        <div class="legend" id="crev-legend"><span><i style="background:var(--flow)"></i>Flow</span><span><i style="background:var(--camp)"></i>Campaign</span></div></div>
       <div class="card" id="c-rpr"><h3>RPR by flow</h3>
         <div class="cap" id="rpr-cap"></div>
         <div class="rprhead"><span>Flow · RPR</span><span>vs compare</span></div><div id="rpr-list"></div></div>
@@ -260,6 +265,9 @@
       <div class="card wide" id="c-camp"><h3>Campaign volume — sends &amp; recipients</h3>
         <button class="miniToggle" id="campRevTog" aria-pressed="false" title="Overlay campaign revenue"><span class="dot"></span>Revenue overlay</button>
         <div class="cap">Send count and total recipients side by side — volume context for the campaign-revenue line above.</div></div>
+      <div class="card wide" id="c-sms"><h3>SMS program — revenue &amp; volume</h3>
+        <div class="cap" id="sms-cap">Klaviyo-attributed SMS revenue and SMS messages delivered per month. SMS runs in flows today (no SMS campaigns yet).</div>
+        <div class="legend"><span><i style="background:var(--aqua)"></i>SMS attributed revenue</span><span><i style="background:var(--flow)"></i>SMS delivered</span></div></div>
       <div class="card" id="c-health"><h3>List health</h3>
         <div class="cap">Unsub &amp; spam rate (% of delivered).</div>
         <div class="legend"><span><i style="background:var(--flow)"></i>Unsub %</span><span><i style="background:var(--camp)"></i>Spam %</span></div></div>
@@ -298,14 +306,17 @@ const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createC
 // ---- data globals (filled from Supabase) ----
 let MONTHS=[],flow=[],camp=[],subs=[],csends=[],crecip=[],unsub=[],spam=[],FLOWDATA=[],MI={};
 let total=[],flowPct=[],campPct=[],roll3=[],SYM='$';
+let remail=[],rsms=[],smsDeliv=[];
 let campRev=false;
 let revGroup=false;
+let revChannel=false;
 let inProgress=false;
 let REPORT=null, SLUG='', RANGE=12, CMP='prev';
 let tlaunched=[], tconcluded=[], twon=[], subsR3=[];
 // base (complete-month) series + the in-progress block; applyMode() derives the
 // working arrays above from these depending on the "include current" toggle.
 let BM=[],Bflow=[],Bcamp=[],Bsubs=[],Bcsends=[],Bcrecip=[],Bunsub=[],Bspam=[],BFLOW=[],Btl=[],Btc=[],Btw=[];
+let Bremail=[],Brsms=[],Bsmsd=[];
 let CUR=null, IP=null;
 
 function hydrate(series){
@@ -313,6 +324,7 @@ function hydrate(series){
   Bcsends=series.csends; Bcrecip=series.crecip; Bunsub=series.unsub; Bspam=series.spam;
   BFLOW=series.flows; SYM=series.currency_symbol||'$';
   Btl=series.tlaunched||[]; Btc=series.tconcluded||[]; Btw=series.twon||[];
+  Bremail=series.remail||[]; Brsms=series.rsms||[]; Bsmsd=series.sms_deliv||[];
   CUR=series.current||null;
   applyMode();
   document.getElementById('curTog').hidden=!(CUR&&CUR.mtd);
@@ -338,6 +350,7 @@ function applyMode(){
   subs=cat(Bsubs,on&&CUR.mtd.subs); csends=cat(Bcsends,on&&CUR.mtd.csends);
   crecip=cat(Bcrecip,on&&CUR.mtd.crecip); unsub=cat(Bunsub,on&&CUR.mtd.unsub);
   spam=cat(Bspam,on&&CUR.mtd.spam);
+  remail=cat(Bremail,on&&CUR.mtd.remail); rsms=cat(Brsms,on&&CUR.mtd.rsms); smsDeliv=cat(Bsmsd,on&&CUR.mtd.sms_deliv);
   FLOWDATA=on?BFLOW.concat(CUR.mtd.flows):BFLOW.slice();
   const ct=on&&CUR.tests?CUR.tests:null;
   tlaunched=cat(Btl,ct?ct.launched:0); tconcluded=cat(Btc,ct?ct.concluded:0); twon=cat(Btw,ct?ct.won:0);
@@ -462,13 +475,21 @@ const hideTip=c=>{const t=c.querySelector('.tip');if(t)t.style.opacity=0;};
 const lblEvery=k=>Math.max(1,Math.ceil(k/7));
 
 function stackedCols(id,win){const card=document.getElementById(id);const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1);
-  const fv=flow.slice(i0,i1+1),cv=camp.slice(i0,i1+1),tv=total.slice(i0,i1+1);
+  const chan=revChannel;
+  const S1=chan?remail:flow, S2=chan?rsms:camp;
+  const C1='var(--flow)', C2=chan?'var(--aqua)':'var(--camp)';
+  const N1=chan?'Email':'Flow', N2=chan?'SMS':'Campaign';
+  const P1=IP?(chan?IP.proj.remail:IP.proj.flow):0, P2=IP?(chan?IP.proj.rsms:IP.proj.camp):0;
+  const fv=S1.slice(i0,i1+1),cv=S2.slice(i0,i1+1),tv=fv.map((v,i)=>v+(cv[i]||0));
+  const lg=document.getElementById('crev-legend');
+  if(lg)lg.innerHTML=`<span><i style="background:${C1}"></i>${N1}</span><span><i style="background:${C2}"></i>${N2}</span>`;
+  const ttl=document.getElementById('crev-title');if(ttl)ttl.textContent='Attributed revenue — '+(chan?'email vs SMS':'flow vs campaign');
   const grp=revGroup;
   const W=1100,H=320,PL=52,PR=16,PT=14,PB=40,iw=W-PL-PR,ih=H-PT-PB,n=L.length,step=iw/n;
   const bw=grp?step*0.30:step*0.6,gap=grp?4:0;
   const ipK=IP&&IP.idx>=i0&&IP.idx<=i1?IP.idx-i0:-1;
   const mvals=grp?[...fv,...cv]:[...tv];
-  if(ipK>=0&&IP.project){if(grp)mvals.push(IP.proj.flow,IP.proj.camp);else mvals.push(IP.proj.flow+IP.proj.camp);}
+  if(ipK>=0&&IP.project){if(grp)mvals.push(P1,P2);else mvals.push(P1+P2);}
   const max=niceMax(Math.max(...mvals));const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
   const y=v=>PT+ih-(v/max)*ih,ev=lblEvery(n);
   const ghost=(x,w,v)=>svg.appendChild(el('rect',{x,y:y(v),width:w,height:Math.max(PT+ih-y(v),0),rx:3,fill:'none',stroke:'var(--ink2)','stroke-width':1.4,'stroke-dasharray':'4 3',opacity:.75}));
@@ -476,18 +497,18 @@ function stackedCols(id,win){const card=document.getElementById(id);const[i0,i1]
     const tx=el('text',{class:'ax',x:PL-8,y:y(gv)+4,'text-anchor':'end'});tx.textContent=kfmt(gv);svg.appendChild(tx);}
   L.forEach((m,i)=>{const hf=fv[i]/max*ih,hc=cv[i]/max*ih,ip=(i===ipK),op=ip?0.5:1;
     if(grp){const cx=PL+step*i+step/2,x1=cx-bw-gap/2,x2=cx+gap/2;
-      svg.appendChild(el('rect',{x:x1,y:PT+ih-hf,width:bw,height:Math.max(hf,0),rx:3,fill:'var(--flow)','fill-opacity':op}));
-      svg.appendChild(el('rect',{x:x2,y:PT+ih-hc,width:bw,height:Math.max(hc,0),rx:3,fill:'var(--camp)','fill-opacity':op}));
-      if(ip&&IP.project){ghost(x1,bw,IP.proj.flow);ghost(x2,bw,IP.proj.camp);}}
+      svg.appendChild(el('rect',{x:x1,y:PT+ih-hf,width:bw,height:Math.max(hf,0),rx:3,fill:C1,'fill-opacity':op}));
+      svg.appendChild(el('rect',{x:x2,y:PT+ih-hc,width:bw,height:Math.max(hc,0),rx:3,fill:C2,'fill-opacity':op}));
+      if(ip&&IP.project){ghost(x1,bw,P1);ghost(x2,bw,P2);}}
     else{const x=PL+step*i+(step-bw)/2;
-      svg.appendChild(el('rect',{x,y:PT+ih-hf,width:bw,height:Math.max(hf,0),rx:3,fill:'var(--flow)','fill-opacity':op}));
-      svg.appendChild(el('rect',{x,y:PT+ih-hf-hc-2,width:bw,height:Math.max(hc,0),rx:3,fill:'var(--camp)','fill-opacity':op}));
-      if(ip&&IP.project)ghost(x,bw,IP.proj.flow+IP.proj.camp);}
+      svg.appendChild(el('rect',{x,y:PT+ih-hf,width:bw,height:Math.max(hf,0),rx:3,fill:C1,'fill-opacity':op}));
+      svg.appendChild(el('rect',{x,y:PT+ih-hf-hc-2,width:bw,height:Math.max(hc,0),rx:3,fill:C2,'fill-opacity':op}));
+      if(ip&&IP.project)ghost(x,bw,P1+P2);}
     const lx=PL+step*i+step/2;
     if(i%ev===0||i===n-1){const tx=el('text',{class:'ax',x:lx,y:H-14,'text-anchor':'middle'});tx.textContent=mlabel(m)+(ip?'*':'');svg.appendChild(tx);}
     const hit=el('rect',{x:PL+step*i,y:PT,width:step,height:ih,fill:'transparent'});
-    hit.addEventListener('mousemove',e=>{const rows=[['Flow',fv[i],'var(--flow)'],['Campaign',cv[i],'var(--camp)'],['Total',tv[i],'var(--ink2)']];
-      let title=mlabel(m); if(ip){title+=` · MTD ${IP.days}/${IP.dim}d`; if(IP.project)rows.push(['Projected total',IP.proj.flow+IP.proj.camp,'var(--ink2)']);}
+    hit.addEventListener('mousemove',e=>{const rows=[[N1,fv[i],C1],[N2,cv[i],C2],['Total',tv[i],'var(--ink2)']];
+      let title=mlabel(m); if(ip){title+=` · MTD ${IP.days}/${IP.dim}d`; if(IP.project)rows.push(['Projected total',P1+P2,'var(--ink2)']);}
       showTip(card,e,title,rows,money);});
     hit.addEventListener('mouseleave',()=>hideTip(card));svg.appendChild(hit);});
   svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));card.appendChild(svg);}
@@ -594,6 +615,7 @@ function renderDash(){clearDash();const{cur}=windows();renderTiles();renderRpr()
   lineChart('c-health',cur,[{name:'Unsub %',color:'var(--flow)',data:unsub},{name:'Spam %',color:'var(--camp)',data:spam}],v=>v.toFixed(2)+'%',{ip:ipR});
   lineChart('c-mix',cur,[{name:'Flow %',color:'var(--flow)',data:flowPct},{name:'Campaign %',color:'var(--camp)',data:campPct}],v=>v+'%',{yfmt:v=>v+'%',ip:ipR});
   renderCamp();
+  renderSms();
   renderIpNote();
   renderBoard();}
 
@@ -620,6 +642,21 @@ function renderCamp(){const{cur}=windows();const cc=document.getElementById('c-c
   miniCols(ac,cur,csends,'var(--aqua)',v=>Math.round(v),'Sends',area,ipSend);
   miniCols(bc,cur,crecip,'var(--flow)',nfmt,'Recipients',area,ipRec);}
 
+function renderSms(){const{cur}=windows();const cc=document.getElementById('c-sms');let sm=cc.querySelector('.sm');if(sm)sm.remove();
+  sm=document.createElement('div');sm.className='sm';
+  const a=document.createElement('div');a.innerHTML='<div class="lab">SMS attributed revenue / month</div>';const ac=document.createElement('div');a.appendChild(ac);
+  const b=document.createElement('div');b.innerHTML='<div class="lab">SMS delivered / month</div>';const bc=document.createElement('div');b.appendChild(bc);
+  sm.appendChild(a);sm.appendChild(b);cc.appendChild(sm);
+  const ipR=IP?{idx:IP.idx,project:IP.project,proj:IP.proj.rsms}:null;
+  const ipD=IP?{idx:IP.idx,project:IP.project,proj:IP.proj.sms_deliv}:null;
+  miniCols(ac,cur,rsms,'var(--aqua)',money,'SMS rev',null,ipR);
+  miniCols(bc,cur,smsDeliv,'var(--flow)',nfmt,'Delivered',null,ipD);
+  const u=CUR&&CUR.sms_usage,cap=document.getElementById('sms-cap');
+  const head='Klaviyo-attributed SMS revenue &amp; messages delivered per month. SMS runs in flows today (no SMS campaigns yet). ';
+  if(u&&u.max){const pct=Math.round(u.used/u.max*100),f=d=>new Date(d).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    cap.innerHTML=head+`<b>This billing cycle (${f(u.period_start)}–${f(u.period_end)}): ${Math.round(u.used).toLocaleString()} of ${u.max.toLocaleString()} SMS credits used (${pct}%).</b>`;}
+  else cap.innerHTML=head;}
+
 function toggleTheme(){const r=document.documentElement;
   const dark=r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches);
   r.setAttribute('data-theme',dark?'light':'dark');renderDash();}
@@ -634,6 +671,8 @@ function wireControls(){
     document.getElementById('view-dash').hidden=v!=='dash';document.getElementById('view-board').hidden=v!=='board';}));
   document.getElementById('campRevTog').addEventListener('click',e=>{campRev=!campRev;e.currentTarget.setAttribute('aria-pressed',campRev);renderCamp();});
   document.getElementById('revGroupTog').addEventListener('click',e=>{revGroup=!revGroup;e.currentTarget.setAttribute('aria-pressed',revGroup);
+    document.querySelectorAll('#c-rev svg,#c-rev .tip').forEach(n=>n.remove());stackedCols('c-rev',windows().cur);});
+  document.getElementById('revChanTog').addEventListener('click',e=>{revChannel=!revChannel;e.currentTarget.setAttribute('aria-pressed',revChannel);
     document.querySelectorAll('#c-rev svg,#c-rev .tip').forEach(n=>n.remove());stackedCols('c-rev',windows().cur);});
   document.getElementById('curTog').addEventListener('click',e=>{inProgress=!inProgress;e.currentTarget.setAttribute('aria-pressed',inProgress);applyMode();renderDash();});
   document.getElementById('themeBtn').addEventListener('click',toggleTheme);
