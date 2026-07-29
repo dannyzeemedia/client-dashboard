@@ -267,7 +267,7 @@
         <div class="cap">Send count and total recipients side by side — volume context for the campaign-revenue line above.</div></div>
       <div class="card wide" id="c-sms"><h3>SMS program — revenue &amp; volume</h3>
         <div class="cap" id="sms-cap">Klaviyo-attributed SMS revenue and SMS messages delivered per month. SMS runs in flows today (no SMS campaigns yet).</div>
-        <div class="legend"><span><i style="background:var(--aqua)"></i>SMS attributed revenue</span><span><i style="background:var(--flow)"></i>SMS delivered</span></div></div>
+        <div class="legend"><span><i style="background:var(--camp)"></i>SMS attributed revenue</span><span><i style="background:var(--flow)"></i>SMS delivered</span></div></div>
       <div class="card" id="c-health"><h3>List health</h3>
         <div class="cap">Unsub &amp; spam rate (% of delivered).</div>
         <div class="legend"><span><i style="background:var(--flow)"></i>Unsub %</span><span><i style="background:var(--camp)"></i>Spam %</span></div></div>
@@ -477,7 +477,7 @@ const lblEvery=k=>Math.max(1,Math.ceil(k/7));
 function stackedCols(id,win){const card=document.getElementById(id);const[i0,i1]=win;const L=MONTHS.slice(i0,i1+1);
   const chan=revChannel;
   const S1=chan?remail:flow, S2=chan?rsms:camp;
-  const C1='var(--flow)', C2=chan?'var(--aqua)':'var(--camp)';
+  const C1='var(--flow)', C2='var(--camp)';   // primary navy, secondary gold (email/SMS or flow/campaign)
   const N1=chan?'Email':'Flow', N2=chan?'SMS':'Campaign';
   const P1=IP?(chan?IP.proj.remail:IP.proj.flow):0, P2=IP?(chan?IP.proj.rsms:IP.proj.camp):0;
   const fv=S1.slice(i0,i1+1),cv=S2.slice(i0,i1+1),tv=fv.map((v,i)=>v+(cv[i]||0));
@@ -649,7 +649,7 @@ function renderSms(){const{cur}=windows();const cc=document.getElementById('c-sm
   sm.appendChild(a);sm.appendChild(b);cc.appendChild(sm);
   const ipR=IP?{idx:IP.idx,project:IP.project,proj:IP.proj.rsms}:null;
   const ipD=IP?{idx:IP.idx,project:IP.project,proj:IP.proj.sms_deliv}:null;
-  miniCols(ac,cur,rsms,'var(--aqua)',money,'SMS rev',null,ipR);
+  miniCols(ac,cur,rsms,'var(--camp)',money,'SMS rev',null,ipR);
   miniCols(bc,cur,smsDeliv,'var(--flow)',nfmt,'Delivered',null,ipD);
   const u=CUR&&CUR.sms_usage,cap=document.getElementById('sms-cap');
   const head='Klaviyo-attributed SMS revenue &amp; messages delivered per month. SMS runs in flows today (no SMS campaigns yet). ';
