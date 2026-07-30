@@ -74,6 +74,7 @@
   .clogo-btn:hover{opacity:.72}
   .clogo-btn[aria-current="true"]{opacity:1;background:var(--surface-2);border-color:var(--border)}
   .swlogo{height:24px;width:auto;max-width:190px;display:block}
+  .clogo-btn.icon .swlogo{height:29px}
   .swname{font-weight:800;font-size:15px;color:var(--ink);white-space:nowrap}
   @media(max-width:560px){.swlogo{height:19px;max-width:130px}}
   .seg{margin-left:auto;display:flex;background:var(--surface-2);border:1px solid var(--border);
@@ -318,7 +319,7 @@ let remail=[],rsms=[],smsDeliv=[];
 let campRev=false;
 let revGroup=false;
 let revChannel=false;
-let inProgress=false;
+let inProgress=true;   // "Include current (in-progress)" on by default
 let REPORT=null, SLUG='', RANGE=12, CMP='prev';
 let tlaunched=[], tconcluded=[], twon=[], subsR3=[];
 // multi-client: all series/reports the logged-in user may read, keyed by slug
@@ -337,7 +338,7 @@ function hydrate(series){
   Bremail=series.remail||[]; Brsms=series.rsms||[]; Bsmsd=series.sms_deliv||[];
   CUR=series.current||null;
   applyMode();
-  document.getElementById('curTog').hidden=!(CUR&&CUR.mtd);
+  const ct=document.getElementById('curTog');ct.hidden=!(CUR&&CUR.mtd);ct.setAttribute('aria-pressed',inProgress);
   document.getElementById('dash-title').textContent=series.name+' — Lifecycle & Retention';
   document.getElementById('dash-eyebrow').textContent=series.agency+' · email lifecycle & retention performance';
   SLUG=series.client_slug;
@@ -349,24 +350,27 @@ function hydrate(series){
 // ---- multi-client: theme, palette, logo switcher ----
 function isDark(){const r=document.documentElement;
   return r.getAttribute('data-theme')==='dark'||(!r.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches);}
-function logoInfo(data){const dark=isDark();
-  const src='../logos/'+((dark&&data.logo_dark)?data.logo_dark:(data.logo||data.client_slug+'.svg'));
-  return {src, invert: dark && data.logo_invert && !data.logo_dark};}
+function logoInfo(data,iconOnly){const dark=isDark();
+  let file=(dark&&data.logo_dark)?data.logo_dark:(data.logo||data.client_slug+'.svg');
+  if(iconOnly)file=file.replace(/\.svg$/,'-icon.svg');   // convention: <name>-icon.svg is the mark-only crop
+  return {src:'../logos/'+file, invert: dark && data.logo_invert && !data.logo_dark};}
 function applyPalette(){const r=document.documentElement, p=(SERIES[ACTIVE]||{}).palette;
   if(!p){['--flow','--camp','--aqua'].forEach(v=>r.style.removeProperty(v));return;}
   const set=p[isDark()?'dark':'light']||p.light||{};
   for(const k of ['flow','camp','aqua'])if(set[k])r.style.setProperty('--'+k,set[k]);}
 function buildSwitcher(){const b=document.getElementById('brand');b.innerHTML='';
   const wrap=document.createElement('div');wrap.className='cswitch';
+  const single=ORDER.length<2;
   ORDER.forEach(slug=>{const data=SERIES[slug];
-    const btn=document.createElement('button');btn.className='clogo-btn';btn.dataset.slug=slug;
-    if(slug===ACTIVE)btn.setAttribute('aria-current','true');
+    const active=(slug===ACTIVE);
+    const btn=document.createElement('button');btn.className='clogo-btn'+(active?' full':' icon');btn.dataset.slug=slug;
+    if(active)btn.setAttribute('aria-current','true');
     btn.title=data.name;
-    const {src,invert}=logoInfo(data);
+    const {src,invert}=logoInfo(data, !active && !single);   // inactive → icon-only mark
     const img=new Image();img.className='clogo swlogo'+(invert?' inv':'');img.alt=data.name;
-    img.onerror=()=>{btn.innerHTML='<span class="swname">'+data.name+'</span>';};
+    img.onerror=()=>{btn.innerHTML='<span class="swname">'+(active?data.name:(data.name||'?')[0])+'</span>';};
     img.src=src;btn.appendChild(img);
-    btn.addEventListener('click',()=>{if(slug!==ACTIVE)switchTo(slug);});
+    btn.addEventListener('click',()=>{if(!active)switchTo(slug);});
     wrap.appendChild(btn);});
   b.appendChild(wrap);}
 function switchTo(slug){ACTIVE=slug;REPORT=REPORTS[slug]||null;
@@ -403,7 +407,7 @@ function applyMode(){
 
 // ---- formatters ----
 const money=n=>SYM+Math.round(n).toLocaleString();
-const kfmt=n=>Math.abs(n)>=1e6?SYM+(n/1e6).toFixed(2)+'M':Math.abs(n)>=1e3?SYM+Math.round(n/1e3)+'k':SYM+Math.round(n);
+const kfmt=n=>{const a=Math.abs(n);return a>=1e6?SYM+(n/1e6).toFixed(2)+'M':a>=1e4?SYM+Math.round(n/1e3)+'k':a>=1e3?SYM+(n/1e3).toFixed(1)+'k':SYM+Math.round(n);};
 const nfmt=n=>Math.abs(n)>=1e6?(n/1e6).toFixed(1)+'M':Math.abs(n)>=1e3?Math.round(n/1e3)+'k':''+Math.round(n);
 const mlabel=m=>{const[y,mo]=m.split('-');return['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo-1]+" '"+y.slice(2);};
 function windows(){const n=MONTHS.length,len=RANGE===0?n:Math.min(RANGE,n);const cur=[n-len,n-1];
