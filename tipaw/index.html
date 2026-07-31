@@ -847,7 +847,8 @@ function auditVolume(host,S,spec){
   const fs=(S.flow_summary||[]).slice().sort((a,b)=>b[3]-a[3]).slice(0,10),mx=Math.max(...fs.map(r=>r[3]),1);
   const rc=v=>v<0.3?'var(--crit)':v>=0.5?'var(--aqua)':'var(--ink2)';
   const wrap=document.createElement('div');wrap.className='conc';
-  wrap.innerHTML='<div class="conc-row conc-head"><span>Flow</span><span>Emails delivered (12 mo)</span><span class="cn">RPR ($/Rec)</span><span class="cn">Order rate</span></div>'
+  const CS=S.currency_symbol||'$';
+  wrap.innerHTML='<div class="conc-row conc-head"><span>Flow</span><span>Emails delivered (12 mo)</span><span class="cn">RPR ('+CS+'/Rec)</span><span class="cn">Order rate</span></div>'
     +fs.map(r=>{const fid=r[0],name=r[1],deliv=r[3],rpr=deliv?r[2]/deliv:0,por=deliv?r[4]/deliv*100:0;
       return '<div class="conc-row">'
         +'<a href="https://www.klaviyo.com/flow/'+fid+'/edit" target="_blank" rel="noopener" title="'+name+'">'+name+' ↗</a>'
@@ -928,10 +929,12 @@ function auditGrowth(host,S,spec){host.innerHTML='';spec=spec||{};
     const series=[{name:S.name||'This account',data:mine,color:'var(--camp)'},
       {name:benchName,data:spec.persubBenchmark,color:'var(--ink2)',dash:true}];
     host.appendChild(alegend([S.name||'This account','var(--camp)'],[benchName+' (dashed)','var(--ink2)']));
-    auditLineChart(host,m,series,v=>Math.round(v),100,'Start = 100',-1);
-    const note=document.createElement('div');note.className='conc-note';
-    note.innerHTML='Flow revenue per new subscriber, indexed to 100 at the start of the window (each account against its own start, so the currency gap does not matter). As the audience scaled, '+(S.name||'this account')+' fell to about <b>'+Math.round(mine[mine.length-1])+'</b>, each new subscriber now worth roughly half what it was, while our longest-managed client climbed to about <b>'+Math.round(spec.persubBenchmark[spec.persubBenchmark.length-1])+'</b>. A well-run lifecycle makes each new subscriber worth more as you scale, not less.';
-    host.appendChild(note);return;}
+    auditLineChart(host,m,series,v=>Math.round(v),100,'Both start at 100',-1);
+    const cap=document.createElement('div');cap.style.cssText='font-size:12.5px;color:var(--ink2);margin-top:8px;font-weight:600';
+    cap.textContent='What each line shows: how much flow revenue one new subscriber is worth, tracked over 12 months. Both accounts start at 100, so you are comparing the direction, not the raw euros.';
+    const note=document.createElement('div');note.style.cssText='font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.55';
+    note.innerHTML=(S.name||'This account')+' has fallen to about <b style="color:var(--crit)">'+Math.round(mine[mine.length-1])+'</b> (each new subscriber now worth roughly half what it was a year ago). Our longest-managed client has climbed to about <b style="color:var(--ink)">'+Math.round(spec.persubBenchmark[spec.persubBenchmark.length-1])+'</b>. Run well, a lifecycle makes every new subscriber worth more as it scales, not less.';
+    host.appendChild(cap);host.appendChild(note);return;}
   const ssms=S.subs_sms||[],hasSms=ssms.some(v=>v>0);
   if(hasSms){const cseg=document.createElement('div');cseg.className='chartseg';cseg.style.marginLeft='8px';
     [['email','Email'],['sms','SMS'],['combined','Combined']].forEach(([v,lab])=>{const b=document.createElement('button');
@@ -960,7 +963,8 @@ function auditFlowRpr(host,S){const cur=(S.current&&S.current.mtd)?S.current:nul
   // realistic $/Rec target = the same diminishing-returns revenue target as finding 1, divided by recipients
   const bs=S.subs.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3, bf=S.flow.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3;
   const tgtRpr=subs.map((s,i)=>{const trev=bs>0?bf*Math.pow(s/bs,0.8):0;return dv[i]?+(trev/dv[i]).toFixed(3):0;});
-  auditDual(host,m,dv,rpr,nfmt,v=>v.toFixed(2),'Emails delivered / mo','$/Rec (actual)',tgtRpr,'Realistic $/Rec target (diminishing returns)',cur?m.length-1:-1);}
+  const CS=S.currency_symbol||'$';
+  auditDual(host,m,dv,rpr,nfmt,v=>v.toFixed(2),'Emails delivered / mo',CS+'/Rec (actual)',tgtRpr,'Realistic '+CS+'/Rec target (diminishing returns)',cur?m.length-1:-1);}
 function auditLineChart(host,months,series,fmt,ref,reflabel,ipIdx){
   const W=1080,H=260,PL=54,PR=18,PT=16,PB=36,iw=W-PL-PR,ih=H-PT-PB,n=months.length;
   const all=series.flatMap(s=>s.data.filter(v=>v!=null));if(ref!=null)all.push(ref);
