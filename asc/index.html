@@ -842,11 +842,11 @@ function auditTrend(host,spec,S){host.innerHTML='';
   auditLineChart(host,m,series,fmt,spec.ref,spec.reflabel,ipIdx);
   if(spec.metric==='unsub'&&(S.msg_unsub||[]).length){
     const det=document.createElement('details');det.className='aflist';
-    det.innerHTML='<summary>Top offender emails — the individual messages driving the most unsubscribes (last 12 months)</summary>';
+    det.innerHTML='<summary>Top offender emails — the individual messages driving the most unsubscribes (last 90 days)</summary>';
     const b=document.createElement('div');b.className='aflist-body';
     const rows=S.msg_unsub.map(f=>{const mid=f[0],mname=f[1],fid=f[2],fname=f[3],u=f[4],dl=f[5],rate=dl?u/dl*100:0;
       return '<div class="aflist-row'+(rate>=1?' flag':'')+'">'
-        +'<a href="https://www.klaviyo.com/flow/'+fid+'/message/'+mid+'/edit" target="_blank" rel="noopener" title="'+mname+'">'+mname+' ↗</a>'
+        +'<a href="https://www.klaviyo.com/flow/message/'+mid+'/reports/overview" target="_blank" rel="noopener" title="'+mname+'">'+mname+' ↗</a>'
         +'<a class="fl" href="https://www.klaviyo.com/flow/'+fid+'/edit" target="_blank" rel="noopener" title="'+fname+'">'+fname+'</a>'
         +'<span>'+u.toLocaleString()+'</span><span>'+rate.toFixed(2)+'%</span></div>';}).join('');
     b.innerHTML='<div class="afnote">Here are your top offenders. If you want to dramatically reduce the unsubscribe rate, scrutinize these emails in particular, as they are dragging the rate up.</div>'
