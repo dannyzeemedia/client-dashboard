@@ -766,13 +766,15 @@ function renderAuditChart(host,spec,S){
     return auditBars(host,spec,S);}}
 function auditReentry(host,S){
   const cls=n=>{n=(n||'').toLowerCase();
-    if(/abandon/.test(n))return{cat:'Abandonment',rec:'4–7 days',ab:true};
-    if(/winback|sunset|lapsed|bounce/.test(n))return{cat:'Winback',rec:'30–90 days'};
-    if(/welcome|onboard/.test(n))return{cat:'Welcome',rec:'Once'};
-    if(/review|trustpilot/.test(n))return{cat:'Review',rec:'Once / long'};
-    if(/post.?purchase|order|thank/.test(n))return{cat:'Post-purchase',rec:'Once / long'};
-    return{cat:'Other',rec:'—'};};
-  const rows=(S.flow_reentry||[]).filter(f=>!/buyer property assignment/i.test(f[1]||'')).map(f=>{const c=cls(f[1]);return{fid:f[0],name:f[1],days:f[2],cat:c.cat,rec:c.rec,flag:!!(c.ab&&(f[2]==null||f[2]>7))};});
+    if(/abandon/.test(n))return{cat:'Abandonment',rec:'4–7 days',max:7,want:true};
+    if(/review submitted/.test(n))return{cat:'Review (submitted)',rec:'≤7 days',max:7,want:true};
+    if(/leave a review|trustpilot|review/.test(n))return{cat:'Review request',rec:'≤30 days',max:30,want:true};
+    if(/winback|sunset|lapsed|bounce/.test(n))return{cat:'Winback',rec:'30–90 days',want:false};
+    if(/welcome|onboard/.test(n))return{cat:'Welcome',rec:'Once',want:false};
+    if(/post.?purchase|thank/.test(n))return{cat:'Post-purchase',rec:'~3 days',max:3,want:true};
+    return{cat:'Other',rec:'—',want:false};};
+  const rows=(S.flow_reentry||[]).filter(f=>!/buyer property assignment/i.test(f[1]||'')).map(f=>{const c=cls(f[1]);
+    return{fid:f[0],name:f[1],days:f[2],cat:c.cat,rec:c.rec,flag:!!(c.want&&(f[2]==null||f[2]>c.max))};});
   rows.sort((a,b)=>(b.flag-a.flag)||((b.days||0)-(a.days||0)));
   const wrap=document.createElement('div');wrap.className='conc rntbl';
   wrap.innerHTML='<div class="conc-row conc-head"><span>Flow</span><span>Type</span><span class="cn">Current re-entry</span><span class="cn">Recommended</span></div>'
@@ -783,7 +785,7 @@ function auditReentry(host,S){
       +'<span class="cn">'+r.rec+'</span></div>').join('');
   host.appendChild(wrap);
   const note=document.createElement('div');note.style.cssText='font-size:12px;color:var(--muted);margin-top:10px';
-  note.textContent='Abandonment flows should re-open after 4–7 days. The ones in red re-open only after 30–60, so a shopper who abandons again within the month never re-enters, and that repeat-abandoner revenue is lost.';
+  note.textContent='Red rows re-open too slowly, or are enter-once when they should repeat, so returning customers miss the flow. The recommended window for each is in the last column.';
   host.appendChild(note);}
 function auditVolume(host,S,spec){
   const fs=(S.flow_summary||[]).slice().sort((a,b)=>b[3]-a[3]).slice(0,10),mx=Math.max(...fs.map(r=>r[3]),1);
