@@ -738,11 +738,25 @@ async function loadAndRender(){ try{
   REPORTS={}; (rep.data||[]).forEach(r=>{ if(r.client_slug&&!REPORTS[r.client_slug])REPORTS[r.client_slug]=r.data; });
   const slugs=Object.keys(SERIES);
   ORDER=[...CORDER.filter(s=>slugs.includes(s)), ...slugs.filter(s=>!CORDER.includes(s)).sort()];
+  const m=location.pathname.match(/dashboard\/([^\/]+)\//);
+  const folder=m?m[1]:null;
+  if(folder && !SERIES[folder]){ await showWrongAccount(folder); return; }   // signed into an account without this client
   buildSwitcher();
   wireControls();
-  const m=location.pathname.match(/dashboard\/([^\/]+)\//);
-  switchTo((m&&ORDER.includes(m[1]))?m[1]:ORDER[0]);   // open on the folder's client if valid
+  switchTo((folder&&ORDER.includes(folder))?folder:ORDER[0]);   // open on the folder's client
   }catch(e){document.getElementById('app').innerHTML='<div class="wrap" style="padding:60px 24px;color:var(--crit)">Dashboard failed to render: '+((e&&e.message)||e)+'</div>';console.error(e);}
+}
+async function showWrongAccount(folder){
+  let email='another account';
+  try{const {data}=await sb.auth.getUser(); if(data&&data.user)email=data.user.email;}catch(e){}
+  const name=folder.charAt(0).toUpperCase()+folder.slice(1);
+  document.getElementById('app').innerHTML=
+    '<div class="wrap" style="max-width:540px;padding:90px 24px;text-align:center">'
+    +'<div class="mark" style="width:40px;height:40px;font-size:20px;margin:0 auto 20px">!</div>'
+    +'<h2 style="font-size:20px;letter-spacing:-.02em;margin:0 0 10px">This dashboard is for a different account</h2>'
+    +'<p style="color:var(--muted);font-size:14.5px;line-height:1.6">You’re signed in as <b style="color:var(--ink2)">'+email+'</b>, which doesn’t have access to the <b style="color:var(--ink2)">'+name+'</b> dashboard.<br>Log out and sign in with the account this link was shared with.</p>'
+    +'<button id="waOut" class="themeBtn" style="margin-top:22px">Log out</button></div>';
+  document.getElementById('waOut').addEventListener('click',()=>sb.auth.signOut().then(()=>location.reload()));
 }
 function showApp(){document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;loadAndRender();}
 function showLogin(){document.getElementById('app').hidden=true;document.getElementById('login').hidden=false;}
