@@ -754,7 +754,25 @@ function renderAuditChart(host,spec,S){
   if(spec.type==='growth')return auditGrowth(host,S);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
-  if(spec.type==='bars'){if(spec.source==='concentration'&&(S.flow_summary||[]).length)return auditConcentration(host,S,spec);return auditBars(host,spec,S);}}
+  if(spec.type==='bars'){
+    if(spec.source==='concentration'&&(S.flow_summary||[]).length)return auditConcentration(host,S,spec);
+    if(spec.source==='volume'&&(S.flow_summary||[]).length)return auditVolume(host,S,spec);
+    return auditBars(host,spec,S);}}
+function auditVolume(host,S,spec){
+  const fs=(S.flow_summary||[]).slice().sort((a,b)=>b[3]-a[3]).slice(0,10),mx=Math.max(...fs.map(r=>r[3]),1);
+  const rc=v=>v<0.3?'var(--crit)':v>=0.5?'var(--aqua)':'var(--ink2)';
+  const wrap=document.createElement('div');wrap.className='conc';
+  wrap.innerHTML='<div class="conc-row conc-head"><span>Flow</span><span>Emails delivered (12 mo)</span><span class="cn">RPR ($/Rec)</span><span class="cn">Order rate</span></div>'
+    +fs.map(r=>{const fid=r[0],name=r[1],deliv=r[3],rpr=deliv?r[2]/deliv:0,por=deliv?r[4]/deliv*100:0;
+      return '<div class="conc-row">'
+        +'<a href="https://www.klaviyo.com/flow/'+fid+'/edit" target="_blank" rel="noopener" title="'+name+'">'+name+' ↗</a>'
+        +'<div class="conc-bar"><span style="width:'+(deliv/mx*100)+'%"></span><b>'+deliv.toLocaleString()+'</b></div>'
+        +'<span class="cn" style="color:'+rc(rpr)+';font-weight:700">'+rpr.toFixed(2)+'</span>'
+        +'<span class="cn">'+por.toFixed(2)+'%</span></div>';}).join('');
+  host.appendChild(wrap);
+  const note=document.createElement('div');note.style.cssText='font-size:12px;color:var(--muted);margin-top:10px';
+  note.textContent='Ordered by send volume. RPR is coloured by efficiency (red = weak, green = strong): a long bar with a red RPR is the problem, high volume for little return.';
+  host.appendChild(note);}
 function auditConcentration(host,S,spec){
   const fs=S.flow_summary,tot=fs.reduce((a,r)=>a+r[2],0)||1,bench=spec.benchmark||[];
   const rows=fs.slice(0,10).map((r,i)=>({fid:r[0],name:r[1],pct:r[2]/tot*100,emails:r[5],bp:bench[i]}));
