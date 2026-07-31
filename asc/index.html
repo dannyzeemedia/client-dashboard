@@ -463,11 +463,14 @@ function buildSwitcher(){const b=document.getElementById('brand');b.innerHTML=''
 function switchTo(slug){ACTIVE=slug;REPORT=REPORTS[slug]||null;
   hydrate(SERIES[slug]);applyPalette();buildSwitcher();buildMenu();
   const seg=document.getElementById('viewSeg');
-  seg.hidden=!(SERIES[slug]&&SERIES[slug].audit);
-  [...seg.children].forEach(x=>x.setAttribute('aria-selected',x.dataset.view==='dash'));
-  document.getElementById('view-dash').hidden=false;
-  document.getElementById('view-audit').hidden=true;
-  renderDash();}
+  const A=SERIES[slug]&&SERIES[slug].audit;
+  seg.hidden=!A;
+  const startAudit=!!(A&&A.default);   // some clients (e.g. an audit prospect) open on the Audit view
+  [...seg.children].forEach(x=>x.setAttribute('aria-selected',x.dataset.view===(startAudit?'audit':'dash')));
+  document.getElementById('view-dash').hidden=startAudit;
+  document.getElementById('view-audit').hidden=!startAudit;
+  renderDash();
+  if(startAudit)renderAudit();}
 
 // Build the working arrays from base + (optionally) the in-progress month.
 function applyMode(){
