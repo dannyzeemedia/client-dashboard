@@ -68,6 +68,17 @@
   .top-in{display:flex;align-items:center;gap:16px;padding:14px 0}
   .brand{display:flex;align-items:center;gap:11px;font-weight:700;letter-spacing:-.01em}
   .brand small{font-weight:500;color:var(--muted);letter-spacing:.02em}
+  .cmenu{position:relative;display:flex;align-items:center;margin-right:8px}
+  .hamb{width:36px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);cursor:pointer;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;padding:0}
+  .hamb span{width:16px;height:2px;background:var(--ink2);border-radius:2px}
+  .cmenu-panel{position:absolute;top:42px;left:0;z-index:30;background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;box-shadow:var(--shadow);padding:8px;min-width:236px}
+  .cm-owner{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:9px 10px 4px}
+  .cm-item{display:block;width:100%;text-align:left;font:inherit;font-size:14px;font-weight:600;color:var(--ink2);
+    background:none;border:0;border-radius:8px;padding:8px 10px;cursor:pointer;white-space:nowrap}
+  .cm-item:hover{background:var(--surface-2);color:var(--ink)}
+  .cm-item.on{color:var(--ink);background:color-mix(in srgb,var(--flow) 12%,var(--surface))}
   .cswitch{display:flex;align-items:center;gap:4px}
   .clogo-btn{background:none;border:1px solid transparent;padding:5px 10px;border-radius:10px;cursor:pointer;
     display:flex;align-items:center;line-height:0;opacity:.4;transition:opacity .15s,background .15s,border-color .15s}
@@ -238,6 +249,7 @@
 
 <div id="app" hidden>
   <header class="top"><div class="wrap top-in">
+    <div class="cmenu" id="cmenu"></div>
     <div class="brand" id="brand"></div>
     <div style="flex:1"></div>
     <div class="seg" id="viewSeg" role="tablist" aria-label="View" hidden>
@@ -387,10 +399,25 @@ function applyPalette(){const r=document.documentElement, p=(SERIES[ACTIVE]||{})
   if(!p){['--flow','--camp','--aqua'].forEach(v=>r.style.removeProperty(v));return;}
   const set=p[isDark()?'dark':'light']||p.light||{};
   for(const k of ['flow','camp','aqua'])if(set[k])r.style.setProperty('--'+k,set[k]);}
+function buildMenu(){const host=document.getElementById('cmenu');host.innerHTML='';
+  const groups=[...new Set(ORDER.map(s=>SERIES[s].group||s))];
+  if(groups.length<2)return;   // single account → no cross-account menu
+  const btn=document.createElement('button');btn.className='hamb';btn.setAttribute('aria-label','Switch account');
+  btn.innerHTML='<span></span><span></span><span></span>';
+  const panel=document.createElement('div');panel.className='cmenu-panel';panel.hidden=true;
+  const byOwner={};ORDER.forEach(s=>{const o=SERIES[s].owner||SERIES[s].name;(byOwner[o]=byOwner[o]||[]).push(s);});
+  panel.innerHTML=Object.entries(byOwner).map(([owner,slugs])=>
+    '<div class="cm-owner">'+owner+'</div>'+slugs.map(s=>
+      '<button class="cm-item'+(s===ACTIVE?' on':'')+'" data-slug="'+s+'">'+SERIES[s].name+'</button>').join('')).join('');
+  btn.addEventListener('click',e=>{e.stopPropagation();panel.hidden=!panel.hidden;});
+  panel.addEventListener('click',e=>{const it=e.target.closest('.cm-item');if(!it)return;panel.hidden=true;if(it.dataset.slug!==ACTIVE)switchTo(it.dataset.slug);});
+  host.appendChild(btn);host.appendChild(panel);}
 function buildSwitcher(){const b=document.getElementById('brand');b.innerHTML='';
   const wrap=document.createElement('div');wrap.className='cswitch';
-  const single=ORDER.length<2;
-  ORDER.forEach(slug=>{const data=SERIES[slug];
+  const g=(SERIES[ACTIVE]||{}).group;
+  const grp=ORDER.filter(s=>(SERIES[s].group||s)===g);   // only same-owner siblings get logos
+  const single=grp.length<2;
+  grp.forEach(slug=>{const data=SERIES[slug];
     const active=(slug===ACTIVE);
     const btn=document.createElement('button');btn.className='clogo-btn'+(active?' full':' icon');btn.dataset.slug=slug;
     if(active)btn.setAttribute('aria-current','true');
@@ -403,7 +430,7 @@ function buildSwitcher(){const b=document.getElementById('brand');b.innerHTML=''
     wrap.appendChild(btn);});
   b.appendChild(wrap);}
 function switchTo(slug){ACTIVE=slug;REPORT=REPORTS[slug]||null;
-  hydrate(SERIES[slug]);applyPalette();buildSwitcher();
+  hydrate(SERIES[slug]);applyPalette();buildSwitcher();buildMenu();
   const seg=document.getElementById('viewSeg');
   seg.hidden=!(SERIES[slug]&&SERIES[slug].audit);
   [...seg.children].forEach(x=>x.setAttribute('aria-selected',x.dataset.view==='dash'));
@@ -846,6 +873,7 @@ function wireControls(){
   document.getElementById('themeBtn').addEventListener('click',toggleTheme);
   document.getElementById('outBtn').addEventListener('click',()=>sb.auth.signOut().then(()=>location.reload()));
   matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{applyPalette();buildSwitcher();renderDash();});
+  document.addEventListener('click',()=>{const p=document.querySelector('.cmenu-panel');if(p)p.hidden=true;});
 }
 
 // ---- boot ----
