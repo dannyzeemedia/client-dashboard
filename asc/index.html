@@ -772,7 +772,7 @@ function auditReentry(host,S){
     if(/review|trustpilot/.test(n))return{cat:'Review',rec:'Once / long'};
     if(/post.?purchase|order|thank/.test(n))return{cat:'Post-purchase',rec:'Once / long'};
     return{cat:'Other',rec:'—'};};
-  const rows=(S.flow_reentry||[]).map(f=>{const c=cls(f[1]);return{fid:f[0],name:f[1],days:f[2],cat:c.cat,rec:c.rec,flag:!!(c.ab&&(f[2]==null||f[2]>7))};});
+  const rows=(S.flow_reentry||[]).filter(f=>!/buyer property assignment/i.test(f[1]||'')).map(f=>{const c=cls(f[1]);return{fid:f[0],name:f[1],days:f[2],cat:c.cat,rec:c.rec,flag:!!(c.ab&&(f[2]==null||f[2]>7))};});
   rows.sort((a,b)=>(b.flag-a.flag)||((b.days||0)-(a.days||0)));
   const wrap=document.createElement('div');wrap.className='conc rntbl';
   wrap.innerHTML='<div class="conc-row conc-head"><span>Flow</span><span>Type</span><span class="cn">Current re-entry</span><span class="cn">Recommended</span></div>'
