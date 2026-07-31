@@ -156,6 +156,9 @@
   .conc-row{display:grid;grid-template-columns:1.5fr 2fr 96px 78px;gap:14px;align-items:center;font-size:13.5px}
   .conc.rntbl .conc-row{grid-template-columns:1.7fr 130px 120px 120px}
   .rn-cat{color:var(--muted);font-size:12.5px}
+  .chartseg{display:inline-flex;gap:2px;background:var(--surface-2);border-radius:8px;padding:3px;margin-bottom:12px}
+  .chartseg .csg{border:none;background:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:5px 13px;border-radius:6px;cursor:pointer}
+  .chartseg .csg.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
   .tst{display:grid;grid-template-columns:1fr 1.5fr;gap:16px;margin-top:4px}
   @media(max-width:640px){.tst{grid-template-columns:1fr}}
   .tst-col{border:1px solid var(--border);border-radius:12px;padding:18px 20px}
@@ -768,7 +771,7 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
     const h=document.createElement('div');h.className='achart';card.appendChild(h);body.appendChild(card);
     if(f.chart){try{renderAuditChart(h,f.chart,S);}catch(e){h.remove();}}else h.remove();});}
 function renderAuditChart(host,spec,S){
-  if(spec.type==='growth')return auditGrowth(host,S);
+  if(spec.type==='growth')return auditGrowth(host,S,spec);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
   if(spec.type==='testing')return auditTesting(host,spec);
@@ -883,7 +886,27 @@ function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab,ipIdx){
   const leg=line2?alegend([blab,'var(--aqua)'],[llab,'var(--camp)'],[l2lab+' (dashed)','var(--ink2)'])
                  :alegend([blab,'var(--aqua)'],[llab,'var(--camp)']);
   host.appendChild(leg);host.appendChild(svg);}
-function auditGrowth(host,S){const cur=(S.current&&S.current.mtd)?S.current:null;
+function persubIdx(subs,flow){   // flow revenue per new subscriber, 3-mo smoothed, indexed to 100 at window start
+  const sm=a=>a.map((_,i)=>{const w=a.slice(Math.max(0,i-2),i+1);return w.reduce((x,y)=>x+y,0)/w.length;});
+  const fs=sm(flow),ss=sm(subs),ratio=fs.map((f,i)=>ss[i]?f/ss[i]:null),base=ratio[0];
+  return ratio.map(r=>(r==null||!base)?null:+(100*r/base).toFixed(1));}
+var auditGrowthView='eur';
+function auditGrowth(host,S,spec){host.innerHTML='';spec=spec||{};
+  const hasPS=Array.isArray(spec.persubBenchmark)&&S.subs.length>=12;
+  if(hasPS){const seg=document.createElement('div');seg.className='chartseg';
+    [['eur','€ Growth'],['persub','Per subscriber']].forEach(([v,lab])=>{const b=document.createElement('button');
+      b.className='csg'+(auditGrowthView===v?' on':'');b.textContent=lab;
+      b.addEventListener('click',e=>{e.stopPropagation();auditGrowthView=v;auditGrowth(host,S,spec);});seg.appendChild(b);});
+    host.appendChild(seg);}
+  if(hasPS&&auditGrowthView==='persub'){
+    const m=S.months.slice(-12),mine=persubIdx(S.subs.slice(-12),S.flow.slice(-12));
+    const series=[{name:S.name||'This account',data:mine,color:'var(--camp)'},
+      {name:spec.persubLabel||'Longest-managed client',data:spec.persubBenchmark,color:'var(--ink2)',dash:true}];
+    auditLineChart(host,m,series,v=>Math.round(v),100,'Start = 100',-1);
+    const note=document.createElement('div');note.className='conc-note';
+    note.innerHTML='Flow revenue per new subscriber, indexed to 100 at the start of the window (each account against its own start, so the currency gap does not matter). As the audience scaled, '+(S.name||'this account')+' fell to about <b>'+Math.round(mine[mine.length-1])+'</b>, each new subscriber now worth roughly half what it was, while our longest-managed client climbed to about <b>'+Math.round(spec.persubBenchmark[spec.persubBenchmark.length-1])+'</b>. A well-run lifecycle makes each new subscriber worth more as you scale, not less.';
+    host.appendChild(note);return;}
+  const cur=(S.current&&S.current.mtd)?S.current:null;
   const m=S.months.slice(-12).concat(cur?[cur.month]:[]);
   const subs=S.subs.slice(-12).concat(cur?[cur.mtd.subs]:[]);
   const flow=S.flow.slice(-12).concat(cur?[cur.mtd.flow]:[]);
