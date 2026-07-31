@@ -126,6 +126,14 @@
   .sev.crit{color:var(--crit);background:color-mix(in srgb,var(--crit) 13%,var(--surface));border:1px solid color-mix(in srgb,var(--crit) 30%,var(--border))}
   .sev.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 32%,var(--border))}
   .sev.note{color:var(--ink2);background:var(--surface-2);border:1px solid var(--border)}
+  .sev.cta{color:var(--aqua);background:color-mix(in srgb,var(--aqua) 15%,var(--surface));border:1px solid color-mix(in srgb,var(--aqua) 34%,var(--border))}
+  .cta{border:1px solid color-mix(in srgb,var(--flow) 28%,var(--border));border-radius:14px;padding:24px;text-align:center;background:color-mix(in srgb,var(--flow) 6%,var(--surface))}
+  .cta-lead{font-size:19px;color:var(--ink);font-weight:600}
+  .cta-lead b{color:var(--flow)}
+  .cta-lead span{color:var(--muted);font-weight:500;font-size:15px}
+  .cta-sub{font-size:13.5px;color:var(--ink2);margin:9px auto 18px;max-width:580px;line-height:1.55}
+  .cta-btn{display:inline-block;background:var(--flow);color:var(--surface);font-weight:700;font-size:14px;padding:12px 28px;border-radius:9px;text-decoration:none}
+  .cta-btn:hover{filter:brightness(1.08)}
   .anum{font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
   .achart{margin-top:2px}
   .abars{display:flex;flex-direction:column;gap:8px;margin-top:2px}
@@ -773,7 +781,7 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
   document.getElementById('audit-sub').textContent=(A&&A.sub)||'';
   body.innerHTML=''; if(!A||!A.findings)return;
   A.findings.forEach((f,i)=>{const card=document.createElement('div');card.className='afind';
-    const sev=f.sev||'note',lbl=sev==='crit'?'Critical':sev==='warn'?'Watch':'Note';
+    const sev=f.sev||'note',lbl=sev==='crit'?'Critical':sev==='warn'?'Watch':sev==='cta'?'Next step':'Note';
     card.innerHTML='<div class="ahead"><span class="anum">'+String(i+1).padStart(2,'0')+'</span>'
       +'<span class="sev '+sev+'">'+lbl+'</span><h3>'+f.title+'</h3></div>'
       +'<div class="abody">'+f.body+'</div>';
@@ -783,12 +791,19 @@ function renderAuditChart(host,spec,S){
   if(spec.type==='growth')return auditGrowth(host,S,spec);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
+  if(spec.type==='cta')return auditCta(host,spec);
   if(spec.type==='testing')return auditTesting(host,spec);
   if(spec.type==='reentry')return auditReentry(host,S);
   if(spec.type==='bars'){
     if(spec.source==='concentration'&&(S.flow_summary||[]).length)return auditConcentration(host,S,spec);
     if(spec.source==='volume'&&(S.flow_summary||[]).length)return auditVolume(host,S,spec);
     return auditBars(host,spec,S);}}
+function auditCta(host,spec){
+  const wrap=document.createElement('div');wrap.className='cta';
+  wrap.innerHTML='<div class="cta-lead">Typical client <b>'+(spec.range||'$3M–$20M')+'</b> in revenue <span>(average '+(spec.avg||'$5M–$8M')+')</span></div>'
+    +'<div class="cta-sub">Smaller budget? We build a package to fit: a baseline of what we typically do, scaled to where you are. Pricing is public, no call required to see it.</div>'
+    +'<a class="cta-btn" href="'+(spec.url||'https://zee.media/#pricing')+'" target="_blank" rel="noopener">'+(spec.label||'Check out our prices')+' →</a>';
+  host.appendChild(wrap);}
 function auditTesting(host,spec){
   const tpw=spec.testsPerWeek||6, banked=Math.round(tpw*52*(spec.winNow||67)/100);
   const wrap=document.createElement('div');wrap.className='tst';
