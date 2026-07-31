@@ -770,8 +770,13 @@ function auditFlowRpr(host,S){const cur=(S.current&&S.current.mtd)?S.current:nul
   const cm=S.months.slice(-12),m=cm.concat(cur?[cur.month]:[]);
   const dv=cm.map(mm=>(S.flows||[]).filter(r=>r[0]===mm).reduce((a,r)=>a+r[2],0));
   if(cur)dv.push((cur.mtd.flows||[]).reduce((a,r)=>a+r[2],0));
-  const rev=S.flow.slice(-12).concat(cur?[cur.mtd.flow]:[]),rpr=rev.map((v,i)=>dv[i]?+(v/dv[i]).toFixed(3):0);
-  auditDual(host,m,dv,rpr,nfmt,v=>v.toFixed(2),'Flow emails delivered / mo','Flow revenue per email (right)',null,null,cur?m.length-1:-1);}
+  const rev=S.flow.slice(-12).concat(cur?[cur.mtd.flow]:[]);
+  const subs=S.subs.slice(-12).concat(cur?[cur.mtd.subs]:[]);
+  const rpr=rev.map((v,i)=>dv[i]?+(v/dv[i]).toFixed(3):0);
+  // realistic $/Rec target = the same diminishing-returns revenue target as finding 1, divided by recipients
+  const bs=S.subs.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3, bf=S.flow.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3;
+  const tgtRpr=subs.map((s,i)=>{const trev=bs>0?bf*Math.pow(s/bs,0.8):0;return dv[i]?+(trev/dv[i]).toFixed(3):0;});
+  auditDual(host,m,dv,rpr,nfmt,v=>v.toFixed(2),'Emails delivered / mo','$/Rec (actual)',tgtRpr,'Realistic $/Rec target (diminishing returns)',cur?m.length-1:-1);}
 function auditTrend(host,spec,S){const cur=(S.current&&S.current.mtd)?S.current:null;
   const m=S.months.slice(-12).concat(cur?[cur.month]:[]);let data,fmt;
   if(spec.metric==='unsub'){data=S.unsub.slice(-12).concat(cur?[cur.mtd.unsub]:[]);fmt=v=>v.toFixed(2)+'%';}
