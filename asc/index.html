@@ -156,6 +156,18 @@
   .conc-row{display:grid;grid-template-columns:1.5fr 2fr 96px 78px;gap:14px;align-items:center;font-size:13.5px}
   .conc.rntbl .conc-row{grid-template-columns:1.7fr 130px 120px 120px}
   .rn-cat{color:var(--muted);font-size:12.5px}
+  .tst{display:grid;grid-template-columns:1fr 1.5fr;gap:16px;margin-top:4px}
+  @media(max-width:640px){.tst{grid-template-columns:1fr}}
+  .tst-col{border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+  .tst-col.them{background:color-mix(in srgb,var(--crit) 7%,var(--surface));border-color:color-mix(in srgb,var(--crit) 26%,var(--border));display:flex;flex-direction:column;justify-content:center}
+  .tst-col.us{background:color-mix(in srgb,var(--flow) 6%,var(--surface))}
+  .tst-h{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .tst-big{font-size:60px;font-weight:800;line-height:1;color:var(--crit);letter-spacing:-.02em}
+  .tst-sub{font-size:13px;color:var(--ink2);margin-top:6px}
+  .tst-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;font-size:14px;color:var(--ink2);line-height:1.45}
+  .tst-list b{color:var(--ink)}
+  .tst-foot{font-size:13px;color:var(--ink2);line-height:1.6;margin-top:12px;background:var(--surface-2);border-radius:8px;padding:11px 14px}
+  .tst-foot b{color:var(--ink)}
   .conc-row.conc-head{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
   .conc-row a{color:var(--flow);font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .conc-row a:hover{text-decoration:underline}
@@ -759,11 +771,28 @@ function renderAuditChart(host,spec,S){
   if(spec.type==='growth')return auditGrowth(host,S);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
+  if(spec.type==='testing')return auditTesting(host,spec);
   if(spec.type==='reentry')return auditReentry(host,S);
   if(spec.type==='bars'){
     if(spec.source==='concentration'&&(S.flow_summary||[]).length)return auditConcentration(host,S,spec);
     if(spec.source==='volume'&&(S.flow_summary||[]).length)return auditVolume(host,S,spec);
     return auditBars(host,spec,S);}}
+function auditTesting(host,spec){
+  const tpw=spec.testsPerWeek||6, banked=Math.round(tpw*52*(spec.winAvg||56)/100);
+  const wrap=document.createElement('div');wrap.className='tst';
+  wrap.innerHTML=
+    '<div class="tst-col them"><div class="tst-h">This account</div>'
+      +'<div class="tst-big">0</div><div class="tst-sub">A/B tests or experiments, ever</div></div>'
+    +'<div class="tst-col us"><div class="tst-h">Zee.Media testing engine</div><ul class="tst-list">'
+      +'<li><b>'+(spec.newMsgs||3)+'</b> new messages per week</li>'
+      +'<li><b>'+tpw+'</b> tests per week — '+(spec.subjectTests||3)+' subject-line &amp; preview, '+(spec.designTests||3)+' full design overhauls</li>'
+      +'<li><b>~'+(spec.winAvg||56)+'%</b> average win rate, now <b>~'+(spec.winNow||67)+'%</b> and climbing</li>'
+      +'<li>A central brain compounds learnings from every test, across every account</li>'
+    +'</ul></div>';
+  host.appendChild(wrap);
+  const foot=document.createElement('div');foot.className='tst-foot';
+  foot.innerHTML='Losing tests are cut fast; every winner becomes the new baseline until it is beaten, so wins bank <b>permanently</b>. Even a 10% win rate would pay off. At our cadence that is roughly <b>'+banked+' winning tests banked per year</b> versus zero here, each one a gain the lifecycle keeps.';
+  host.appendChild(foot);}
 function auditReentry(host,S){
   const cls=n=>{n=(n||'').toLowerCase();
     if(/abandon/.test(n))return{cat:'Abandonment',rec:'4–7 days',max:7,want:true};
