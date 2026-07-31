@@ -121,7 +121,8 @@
     padding:20px 22px;margin:14px 0;display:grid;grid-template-columns:1fr;gap:14px}
   .afind .ahead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
   .afind h3{font-size:16.5px;letter-spacing:-.01em}
-  .afind .abody{color:var(--ink2);font-size:14.5px;line-height:1.6;max-width:74ch}
+  #view-audit{max-width:1340px}
+  .afind .abody{color:var(--ink2);font-size:14.5px;line-height:1.6;max-width:none}
   .sev{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;flex:none}
   .sev.crit{color:var(--crit);background:color-mix(in srgb,var(--crit) 13%,var(--surface));border:1px solid color-mix(in srgb,var(--crit) 30%,var(--border))}
   .sev.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 32%,var(--border))}
@@ -736,7 +737,7 @@ function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab){
     const tr=el('text',{class:'ax',style:'fill:var(--camp)',x:W-PR+8,y:yl(lmax*g/4)+4,'text-anchor':'start'});tr.textContent=lfmt(lmax*g/4);svg.appendChild(tr);}
   if(line2){let d='';months.forEach((m,i)=>{d+=(i===0?'M':'L')+cx(i)+' '+yl(line2[i]);});
     for(let i=months.length-1;i>=0;i--){d+='L'+cx(i)+' '+yl(line[i]);}d+='Z';
-    svg.appendChild(el('path',{d,fill:'var(--crit)','fill-opacity':0.1,stroke:'none'}));}   // shortfall band
+    svg.appendChild(el('path',{d,fill:'var(--ink2)','fill-opacity':0.08,stroke:'none'}));}   // gap-to-target band
   months.forEach((m,i)=>{const x=PL+step*i+(step-bw)/2,h=bars[i]/bmax*ih;
     svg.appendChild(el('rect',{x,y:PT+ih-h,width:bw,height:Math.max(h,0),rx:3,fill:'var(--aqua)','fill-opacity':.8}));
     if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:cx(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(m);svg.appendChild(t);}});
@@ -746,13 +747,22 @@ function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab){
   svg.appendChild(el('path',{d,fill:'none',stroke:'var(--camp)','stroke-width':2.5,'stroke-linejoin':'round'}));
   line.forEach((v,i)=>{if(v!=null)svg.appendChild(el('circle',{cx:cx(i),cy:yl(v),r:3,fill:'var(--camp)'}));});
   svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+  const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
+  const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
+  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
+    const i=Math.max(0,Math.min(n-1,Math.floor((px-PL)/step)));cross.setAttribute('x1',cx(i));cross.setAttribute('x2',cx(i));cross.setAttribute('opacity',1);
+    const rows=[[blab,bars[i],'var(--aqua)',bfmt],[llab,line[i],'var(--camp)',lfmt]];
+    if(line2)rows.push([l2lab,line2[i],'var(--ink2)',lfmt]);
+    showTip(host,e,mlabel(months[i]),rows,lfmt);});
+  hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);
   const leg=line2?alegend([blab,'var(--aqua)'],[llab,'var(--camp)'],[l2lab+' (dashed)','var(--ink2)'])
                  :alegend([blab,'var(--aqua)'],[llab,'var(--camp)']);
   host.appendChild(leg);host.appendChild(svg);}
 function auditGrowth(host,S){const m=S.months.slice(-12),subs=S.subs.slice(-12),flow=S.flow.slice(-12);
-  const bs=subs.slice(0,3).reduce((a,b)=>a+b,0),bf=flow.slice(0,3).reduce((a,b)=>a+b,0);
-  const ratio=bs?bf/bs:0, expected=subs.map(s=>Math.round(s*ratio));   // flow rev if each new sub held its early value
-  auditDual(host,m,subs,flow,nfmt,kfmt,'New subscribers / mo','Flow revenue (actual)',expected,'Expected at early per-subscriber value');}
+  const bs=subs.slice(0,3).reduce((a,b)=>a+b,0)/3, bf=flow.slice(0,3).reduce((a,b)=>a+b,0)/3;
+  const K=0.8;   // diminishing returns: scaled paid acquisition brings lower-intent subs, so revenue grows sub-linearly with the list
+  const target=subs.map(s=>bs>0?Math.round(bf*Math.pow(s/bs,K)):0);
+  auditDual(host,m,subs,flow,nfmt,kfmt,'New subscribers / mo','Flow revenue (actual)',target,'Realistic target (diminishing returns)');}
 function auditFlowRpr(host,S){const m=S.months.slice(-12);
   const dv=m.map(mm=>(S.flows||[]).filter(r=>r[0]===mm).reduce((a,r)=>a+r[2],0));
   const rev=S.flow.slice(-12),rpr=rev.map((v,i)=>dv[i]?+(v/dv[i]).toFixed(3):0);
@@ -773,7 +783,14 @@ function auditTrend(host,spec,S){const m=S.months.slice(-12);let data,fmt;
   svg.appendChild(el('path',{d,fill:'none',stroke:'var(--flow)','stroke-width':2.5,'stroke-linejoin':'round'}));
   data.forEach((v,i)=>svg.appendChild(el('circle',{cx:x(i),cy:y(v),r:3,fill:'var(--flow)'})));
   m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-12,'text-anchor':'middle'});t.textContent=mlabel(mm);svg.appendChild(t);}});
-  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));host.appendChild(svg);}
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+  const nm=spec.metric==='unsub'?'Unsub rate':'Email % of store';
+  const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
+  const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
+  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
+    const i=Math.max(0,Math.min(n-1,Math.round((px-PL)/iw*(n-1))));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
+    showTip(host,e,mlabel(m[i]),[[nm,data[i],'var(--flow)',fmt]],fmt);});
+  hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);host.appendChild(svg);}
 function auditBars(host,spec,S){const map=auditFlowAgg(S,12);let items=[];
   const RET=/post purchase|winback|replenish|back in stock/i;
   if(spec.source==='concentration'){const tot=Object.values(map).reduce((a,v)=>a+v.rev,0)||1;
@@ -792,6 +809,7 @@ function auditBars(host,spec,S){const map=auditFlowAgg(S,12);let items=[];
       .sort((a,b)=>b.val-a.val).slice(0,8);}
   const wrap=document.createElement('div');wrap.className='abars';
   items.forEach(it=>{const row=document.createElement('div');row.className='abar'+(it.flag?' flag':'');
+    row.title=it.label+(it.extra?': '+it.extra:'');
     const c=it.flag?'var(--crit)':(spec.source==='concentration'?'var(--flow)':'var(--aqua)');
     row.innerHTML='<span class="abl" title="'+it.label+'">'+it.label+'</span>'
       +'<span class="abt" style="width:'+Math.max(2,it.pct)+'%;background:'+c+'"></span>'
