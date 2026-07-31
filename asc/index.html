@@ -141,13 +141,17 @@
   .aflist summary::before{content:'▸ ';color:var(--muted)}
   .aflist[open] summary::before{content:'▾ '}
   .aflist-body{padding:6px 8px}
-  .aflist-row{display:grid;grid-template-columns:1fr 130px 96px;gap:12px;align-items:center;padding:8px 10px;font-size:13.5px;border-radius:7px}
+  .afnote{font-size:13px;line-height:1.5;color:var(--ink2);background:color-mix(in srgb,var(--warn) 9%,var(--surface));
+    border:1px solid color-mix(in srgb,var(--warn) 26%,var(--border));border-radius:8px;padding:9px 12px;margin:4px 4px 10px}
+  .aflist-row{display:grid;grid-template-columns:1.5fr 1fr 84px 84px;gap:12px;align-items:center;padding:8px 10px;font-size:13.5px;border-radius:7px}
   .aflist-row:not(.aflist-head):hover{background:var(--surface-2)}
   .aflist-row.aflist-head{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
   .aflist-row a{color:var(--flow);font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .aflist-row a.fl{color:var(--ink2);font-weight:500}
   .aflist-row a:hover{text-decoration:underline}
   .aflist-row span{font-variant-numeric:tabular-nums;color:var(--ink2);text-align:right}
   .aflist-row.flag span:last-child{color:var(--crit);font-weight:700}
+  @media(max-width:640px){.aflist-row{grid-template-columns:1fr auto auto}.aflist-row a.fl{display:none}}
 
   .banner{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--ink2);
     background:color-mix(in srgb,var(--good) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--good) 30%,var(--border));
@@ -836,14 +840,17 @@ function auditTrend(host,spec,S){host.innerHTML='';
   } else return;
   if(series.length>1)host.appendChild(alegend.apply(null,series.map(s=>[s.name,s.color])));
   auditLineChart(host,m,series,fmt,spec.ref,spec.reflabel,ipIdx);
-  if(spec.metric==='unsub'&&(S.flow_unsub||[]).length){
+  if(spec.metric==='unsub'&&(S.msg_unsub||[]).length){
     const det=document.createElement('details');det.className='aflist';
-    det.innerHTML='<summary>Top flows driving unsubscribes (last 12 months) — click a flow to open it in Klaviyo</summary>';
+    det.innerHTML='<summary>Top offender emails — the individual messages driving the most unsubscribes (last 12 months)</summary>';
     const b=document.createElement('div');b.className='aflist-body';
-    b.innerHTML='<div class="aflist-row aflist-head"><span>Flow</span><span>Unsubscribes</span><span>Unsub rate</span></div>'+
-      S.flow_unsub.slice(0,15).map(f=>{const rate=f[3]?f[2]/f[3]*100:0;
-        return '<div class="aflist-row'+(rate>=0.8?' flag':'')+'"><a href="https://www.klaviyo.com/flow/'+f[0]+'/edit" target="_blank" rel="noopener">'+f[1]+' ↗</a>'+
-          '<span>'+f[2].toLocaleString()+'</span><span>'+rate.toFixed(2)+'%</span></div>';}).join('');
+    const rows=S.msg_unsub.map(f=>{const mid=f[0],mname=f[1],fid=f[2],fname=f[3],u=f[4],dl=f[5],rate=dl?u/dl*100:0;
+      return '<div class="aflist-row'+(rate>=1?' flag':'')+'">'
+        +'<a href="https://www.klaviyo.com/flow/'+fid+'/message/'+mid+'/edit" target="_blank" rel="noopener" title="'+mname+'">'+mname+' ↗</a>'
+        +'<a class="fl" href="https://www.klaviyo.com/flow/'+fid+'/edit" target="_blank" rel="noopener" title="'+fname+'">'+fname+'</a>'
+        +'<span>'+u.toLocaleString()+'</span><span>'+rate.toFixed(2)+'%</span></div>';}).join('');
+    b.innerHTML='<div class="afnote">Here are your top offenders. If you want to dramatically reduce the unsubscribe rate, scrutinize these emails in particular, as they are dragging the rate up.</div>'
+      +'<div class="aflist-row aflist-head"><span style="text-align:left">Email</span><span style="text-align:left">Flow</span><span>Unsubs</span><span>Unsub rate</span></div>'+rows;
     det.appendChild(b);host.appendChild(det);
   }}
 function auditBars(host,spec,S){const map=auditFlowAgg(S,12);let items=[];
