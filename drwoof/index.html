@@ -409,7 +409,7 @@
     <div class="vidbackdrop" id="vidBackdrop"></div>
     <div class="vidbox">
       <button class="vidclose" id="vidClose" type="button" aria-label="Close video">×</button>
-      <div class="vidframe"><iframe id="vidIframe" src="" title="Video walk-thru" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="vidframe"><iframe id="vidIframe" src="about:blank" title="Video walk-thru" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>
     </div>
   </div>
 
@@ -1204,7 +1204,7 @@ function wireControls(){
   (function(){const EMBED='https://www.loom.com/embed/92b8a87b89bf4ff5a0d1fc5ae7753ae7';
     const vm=document.getElementById('vidModal'),vif=document.getElementById('vidIframe');
     const open=()=>{vif.src=EMBED;vm.hidden=false;};
-    const close=()=>{vm.hidden=true;vif.src='';};   // clearing src stops playback
+    const close=()=>{vm.hidden=true;vif.src='about:blank';};   // blanking the frame stops playback
     document.getElementById('vidBtn').addEventListener('click',e=>{e.stopPropagation();open();});
     document.getElementById('vidClose').addEventListener('click',close);
     document.getElementById('vidBackdrop').addEventListener('click',close);
