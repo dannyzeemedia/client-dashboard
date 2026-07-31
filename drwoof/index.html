@@ -164,6 +164,13 @@
   .conc-row{display:grid;grid-template-columns:1.5fr 2fr 96px 78px;gap:14px;align-items:center;font-size:13.5px}
   .conc.rntbl .conc-row{grid-template-columns:1.7fr 130px 120px 120px}
   .rn-cat{color:var(--muted);font-size:12.5px}
+  .ggwrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:620px){.ggwrap{grid-template-columns:1fr}}
+  .ggpanel{position:relative;border:1px solid var(--border);border-radius:10px;padding:10px 12px 8px}
+  .ggtitle{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+  .ggverdict{font-size:12px;font-weight:700;margin-top:2px}
+  .ggverdict.bad{color:var(--crit)}
+  .ggverdict.good{color:var(--good)}
   .chartseg{display:inline-flex;gap:2px;background:var(--surface-2);border-radius:8px;padding:3px;margin-bottom:12px}
   .chartseg .csg{border:none;background:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:5px 13px;border-radius:6px;cursor:pointer}
   .chartseg .csg.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -915,26 +922,56 @@ function persubIdx(subs,flow){   // flow revenue per new subscriber, 3-mo smooth
   const sm=a=>a.map((_,i)=>{const w=a.slice(Math.max(0,i-2),i+1);return w.reduce((x,y)=>x+y,0)/w.length;});
   const fs=sm(flow),ss=sm(subs),ratio=fs.map((f,i)=>ss[i]?f/ss[i]:null),base=ratio[0];
   return ratio.map(r=>(r==null||!base)?null:+(100*r/base).toFixed(1));}
+function idxSeries(a){a=a.slice(-12);const sm=a.map((_,i)=>{const w=a.slice(Math.max(0,i-2),i+1);return w.reduce((x,y)=>x+y,0)/w.length;});const b=sm[0]||1;return sm.map(v=>+(100*v/b).toFixed(1));}
+function ggPanel(months,p){
+  const W=500,H=232,PL=42,PR=48,PT=14,PB=28,iw=W-PL-PR,ih=H-PT-PB,n=months.length;
+  const mx=niceMax(Math.max(...p.subs,...p.rev,100));
+  const x=i=>PL+(n<=1?iw/2:iw*i/(n-1)),y=v=>PT+ih-(v/mx)*ih;
+  const below=p.rev[n-1]<p.subs[n-1];
+  const wrap=document.createElement('div');wrap.className='ggpanel';
+  const ttl=document.createElement('div');ttl.className='ggtitle';ttl.textContent=p.title;wrap.appendChild(ttl);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  for(let g=0;g<=4;g++){const v=mx*g/4;svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(v),y2:y(v)}));
+    const t=el('text',{class:'ax',x:PL-6,y:y(v)+4,'text-anchor':'end'});t.textContent=Math.round(v);svg.appendChild(t);}
+  svg.appendChild(el('line',{x1:PL,x2:W-PR,y1:y(100),y2:y(100),stroke:'var(--muted)','stroke-width':1,'stroke-dasharray':'3 3',opacity:0.55}));
+  let d='';for(let i=0;i<n;i++)d+=(i?'L':'M')+x(i)+' '+y(p.subs[i]);
+  for(let i=n-1;i>=0;i--)d+='L'+x(i)+' '+y(p.rev[i]);d+='Z';
+  svg.appendChild(el('path',{d,fill:below?'var(--crit)':'var(--good)','fill-opacity':0.12,stroke:'none'}));
+  const drawLine=(arr,color)=>{let dd='';arr.forEach((v,i)=>dd+=(i?'L':'M')+x(i)+' '+y(v));
+    svg.appendChild(el('path',{d:dd,fill:'none',stroke:color,'stroke-width':2.5,'stroke-linejoin':'round'}));
+    arr.forEach((v,i)=>svg.appendChild(el('circle',{cx:x(i),cy:y(v),r:2,fill:color})));};
+  drawLine(p.subs,'var(--aqua)');drawLine(p.rev,'var(--camp)');
+  const endLab=(arr,color)=>{const t=el('text',{x:W-PR+5,y:y(arr[n-1])+4,'text-anchor':'start',style:'fill:'+color+';font-size:11.5px;font-weight:800'});t.textContent='×'+(arr[n-1]/100).toFixed(1);svg.appendChild(t);};
+  endLab(p.subs,'var(--aqua)');endLab(p.rev,'var(--camp)');
+  [0,n-1].forEach(i=>{const t=el('text',{class:'ax',x:x(i),y:H-9,'text-anchor':i?'end':'start'});t.textContent=mlabel(months[i]);svg.appendChild(t);});
+  const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
+  const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
+  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
+    const i=Math.max(0,Math.min(n-1,Math.round((px-PL)/iw*(n-1))));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
+    showTip(wrap,e,mlabel(months[i]),[['Subscribers',p.subs[i],'var(--aqua)'],['Automation revenue',p.rev[i],'var(--camp)']],v=>Math.round(v));});
+  hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(wrap);});svg.appendChild(hit);
+  wrap.appendChild(svg);
+  const vd=document.createElement('div');vd.className='ggverdict '+(below?'bad':'good');
+  vd.textContent=below?'Revenue is not keeping up with the list':'Revenue is outpacing the list';
+  wrap.appendChild(vd);return wrap;}
 var auditGrowthView='eur',auditSubsChannel='email';
 function auditGrowth(host,S,spec){host.innerHTML='';spec=spec||{};
-  const hasPS=Array.isArray(spec.persubBenchmark)&&S.subs.length>=12;
-  if(hasPS){const seg=document.createElement('div');seg.className='chartseg';
-    [['eur','€ Growth'],['persub','Per subscriber']].forEach(([v,lab])=>{const b=document.createElement('button');
+  const hasGap=Array.isArray(spec.benchSubs)&&Array.isArray(spec.benchRev)&&S.subs.length>=12;
+  if(hasGap){const seg=document.createElement('div');seg.className='chartseg';
+    [['eur','€ Growth'],['gap','List vs revenue']].forEach(([v,lab])=>{const b=document.createElement('button');
       b.className='csg'+(auditGrowthView===v?' on':'');b.textContent=lab;
       b.addEventListener('click',e=>{e.stopPropagation();auditGrowthView=v;auditGrowth(host,S,spec);});seg.appendChild(b);});
     host.appendChild(seg);}
-  if(hasPS&&auditGrowthView==='persub'){
-    const m=S.months.slice(-12),mine=persubIdx(S.subs.slice(-12),S.flow.slice(-12));
-    const benchName=spec.persubLabel||'Longest-managed client';
-    const series=[{name:S.name||'This account',data:mine,color:'var(--camp)'},
-      {name:benchName,data:spec.persubBenchmark,color:'var(--ink2)',dash:true}];
-    host.appendChild(alegend([S.name||'This account','var(--camp)'],[benchName+' (dashed)','var(--ink2)']));
-    auditLineChart(host,m,series,v=>Math.round(v),100,'Both start at 100',-1);
-    const cap=document.createElement('div');cap.style.cssText='font-size:12.5px;color:var(--ink2);margin-top:8px;font-weight:600';
-    cap.textContent='What each line shows: how much flow revenue one new subscriber is worth, tracked over 12 months. Both accounts start at 100, so you are comparing the direction, not the raw euros.';
-    const note=document.createElement('div');note.style.cssText='font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.55';
-    note.innerHTML=(S.name||'This account')+' has fallen to about <b style="color:var(--crit)">'+Math.round(mine[mine.length-1])+'</b> (each new subscriber now worth roughly half what it was a year ago). Our longest-managed client has climbed to about <b style="color:var(--ink)">'+Math.round(spec.persubBenchmark[spec.persubBenchmark.length-1])+'</b>. Run well, a lifecycle makes every new subscriber worth more as it scales, not less.';
-    host.appendChild(cap);host.appendChild(note);return;}
+  if(hasGap&&auditGrowthView==='gap'){
+    const m=S.months.slice(-12);
+    host.appendChild(alegend(['Subscribers','var(--aqua)'],['Automation revenue','var(--camp)']));
+    const cap=document.createElement('div');cap.style.cssText='font-size:12.5px;color:var(--ink2);margin:2px 0 10px;line-height:1.5';
+    cap.textContent='Both lines start at 100. Where the revenue line runs below the subscriber line, the list is growing faster than the money it brings in. The ×figures show how many times each has grown.';
+    host.appendChild(cap);
+    const grid=document.createElement('div');grid.className='ggwrap';
+    grid.appendChild(ggPanel(m,{title:S.name||'This account',subs:idxSeries(S.subs),rev:idxSeries(S.flow)}));
+    grid.appendChild(ggPanel(m,{title:spec.benchLabel||'Longest-managed client',subs:spec.benchSubs,rev:spec.benchRev}));
+    host.appendChild(grid);return;}
   const ssms=S.subs_sms||[],hasSms=ssms.some(v=>v>0);
   if(hasSms){const cseg=document.createElement('div');cseg.className='chartseg';cseg.style.marginLeft='8px';
     [['email','Email'],['sms','SMS'],['combined','Combined']].forEach(([v,lab])=>{const b=document.createElement('button');
