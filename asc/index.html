@@ -61,7 +61,7 @@
   .clogo{width:auto;display:block;max-width:240px}
   .brandlogo{height:26px}
   .p-logo{height:38px}
-  .clogo.inv{filter:invert(1)}   /* opt-in: monochrome logos flipped for dark theme (set per-client in JS) */
+  .clogo.inv{filter:brightness(0) invert(1)}   /* opt-in: monochrome logos forced to white for dark theme (any base colour) */
 
   header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--plane) 88%,transparent);
     backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
