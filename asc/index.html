@@ -837,7 +837,7 @@ function auditTrend(host,spec,S){host.innerHTML='';
     let data=f.map((v,i)=>st[i]?+((v+c[i])/st[i]*100).toFixed(1):0);
     if(cur){const cs=cur.mtd.store||0;data.push(cs?+((cur.mtd.flow+cur.mtd.camp)/cs*100).toFixed(1):0);}
     series=[{name:(S.name||'This account')+' — email % of store',data,color:'var(--flow)'}];
-    if(spec.benchmark&&spec.benchmark.length){const bm=spec.benchmark.slice();while(bm.length<data.length)bm.push(null);
+    if(spec.benchmark&&spec.benchmark.length){const bm=spec.benchmark.slice(0,data.length);while(bm.length<data.length)bm.push(null);
       series.push({name:spec.benchmarkLabel||'Benchmark',data:bm,color:'var(--camp)',dash:true});}
   } else return;
   if(series.length>1)host.appendChild(alegend.apply(null,series.map(s=>[s.name,s.color])));
