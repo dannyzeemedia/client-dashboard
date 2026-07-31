@@ -350,7 +350,8 @@
         <div class="cap">With 3-month rolling average.</div>
         <div class="legend"><span><i style="background:var(--flow)"></i>Monthly</span><span><i style="background:var(--camp)"></i>3-mo avg</span></div></div>
       <div class="card" id="c-subs"><h3>New subscribers / month</h3>
-        <div class="cap">Unique “Subscribed to List” profiles.</div>
+        <div class="chartseg" id="subsChanSeg" hidden><button class="csg on" data-ch="email">Email</button><button class="csg" data-ch="sms">SMS</button><button class="csg" data-ch="combined">Combined</button></div>
+        <div class="cap" id="subs-cap">Unique “Subscribed to List” profiles.</div>
         <div class="legend"><span><i style="background:var(--flow)"></i>New subs</span><span><i style="background:var(--camp)"></i>3-mo avg</span></div></div>
       <div class="card wide" id="c-camp"><h3>Campaign volume — sends &amp; recipients</h3>
         <button class="miniToggle" id="campRevTog" aria-pressed="false" title="Overlay campaign revenue"><span class="dot"></span>Revenue overlay</button>
@@ -416,7 +417,8 @@ let auditUnsubBlended=false;   // audit #3 unsub chart: false = flow vs campaign
 // base (complete-month) series + the in-progress block; applyMode() derives the
 // working arrays above from these depending on the "include current" toggle.
 let BM=[],Bflow=[],Bcamp=[],Bsubs=[],Bcsends=[],Bcrecip=[],Bunsub=[],Bspam=[],BFLOW=[],Btl=[],Btc=[],Btw=[];
-let Bremail=[],Brsms=[],Bsmsd=[];
+let Bremail=[],Brsms=[],Bsmsd=[],Bsubs_sms=[];
+let subsChannel='email';   // New-subscribers channel: 'email' (Subscribed to List), 'sms', or 'combined' (email+sms)
 let CUR=null, IP=null;
 
 function hydrate(series){
@@ -425,7 +427,12 @@ function hydrate(series){
   BFLOW=series.flows; SYM=series.currency_symbol||'$';
   Btl=series.tlaunched||[]; Btc=series.tconcluded||[]; Btw=series.twon||[];
   Bremail=series.remail||[]; Brsms=series.rsms||[]; Bsmsd=series.sms_deliv||[];
+  Bsubs_sms=series.subs_sms||[];
   CUR=series.current||null;
+  // channel toggle only makes sense where SMS subscriptions actually exist
+  const seg=document.getElementById('subsChanSeg');
+  if(seg){const hasSms=Bsubs_sms.some(v=>v>0);seg.hidden=!hasSms;if(!hasSms)subsChannel='email';
+    seg.querySelectorAll('.csg').forEach(b=>b.classList.toggle('on',b.dataset.ch===subsChannel));}
   applyMode();
   const ct=document.getElementById('curTog');ct.hidden=!(CUR&&CUR.mtd);ct.setAttribute('aria-pressed',inProgress);
   document.getElementById('dash-title').textContent=series.name+' — Lifecycle & Retention';
@@ -495,7 +502,9 @@ function applyMode(){
   const cat=(b,v)=>on?b.concat([v]):b.slice();
   MONTHS=on?BM.concat([CUR.month]):BM.slice();
   flow=cat(Bflow,on&&CUR.mtd.flow); camp=cat(Bcamp,on&&CUR.mtd.camp);
-  subs=cat(Bsubs,on&&CUR.mtd.subs); csends=cat(Bcsends,on&&CUR.mtd.csends);
+  const bSubCh=subsChannel==='sms'?Bsubs_sms:subsChannel==='combined'?Bsubs.map((v,i)=>v+(Bsubs_sms[i]||0)):Bsubs;
+  const mSubCh=on?(subsChannel==='sms'?(CUR.mtd.subs_sms||0):subsChannel==='combined'?((CUR.mtd.subs||0)+(CUR.mtd.subs_sms||0)):CUR.mtd.subs):0;
+  subs=cat(bSubCh,mSubCh); csends=cat(Bcsends,on&&CUR.mtd.csends);
   crecip=cat(Bcrecip,on&&CUR.mtd.crecip); unsub=cat(Bunsub,on&&CUR.mtd.unsub);
   spam=cat(Bspam,on&&CUR.mtd.spam);
   remail=cat(Bremail,on&&CUR.mtd.remail); rsms=cat(Brsms,on&&CUR.mtd.rsms); smsDeliv=cat(Bsmsd,on&&CUR.mtd.sms_deliv);
@@ -510,7 +519,7 @@ function applyMode(){
   // month (not the partial MTD), so the dashed line connects smoothly instead of
   // dipping or stopping short.
   const pTot=on&&CUR.proj?CUR.proj.flow+CUR.proj.camp:(total[last]||0);
-  const pSub=on&&CUR.proj?CUR.proj.subs:(subs[last]||0);
+  const pSub=(on&&CUR.proj&&subsChannel==='email')?CUR.proj.subs:(subs[last]||0);
   roll3=total.map((_,i)=>{if(i<2)return null;const t0=(on&&i===last)?pTot:total[i];return Math.round((t0+total[i-1]+total[i-2])/3);});
   subsR3=subs.map((_,i)=>{if(i<2)return null;const s0=(on&&i===last)?pSub:subs[i];return Math.round((s0+subs[i-1]+subs[i-2])/3);});
   MI={}; MONTHS.forEach((m,i)=>MI[m]=i);
@@ -890,7 +899,7 @@ function persubIdx(subs,flow){   // flow revenue per new subscriber, 3-mo smooth
   const sm=a=>a.map((_,i)=>{const w=a.slice(Math.max(0,i-2),i+1);return w.reduce((x,y)=>x+y,0)/w.length;});
   const fs=sm(flow),ss=sm(subs),ratio=fs.map((f,i)=>ss[i]?f/ss[i]:null),base=ratio[0];
   return ratio.map(r=>(r==null||!base)?null:+(100*r/base).toFixed(1));}
-var auditGrowthView='eur';
+var auditGrowthView='eur',auditSubsChannel='email';
 function auditGrowth(host,S,spec){host.innerHTML='';spec=spec||{};
   const hasPS=Array.isArray(spec.persubBenchmark)&&S.subs.length>=12;
   if(hasPS){const seg=document.createElement('div');seg.className='chartseg';
@@ -906,14 +915,24 @@ function auditGrowth(host,S,spec){host.innerHTML='';spec=spec||{};
     const note=document.createElement('div');note.className='conc-note';
     note.innerHTML='Flow revenue per new subscriber, indexed to 100 at the start of the window (each account against its own start, so the currency gap does not matter). As the audience scaled, '+(S.name||'this account')+' fell to about <b>'+Math.round(mine[mine.length-1])+'</b>, each new subscriber now worth roughly half what it was, while our longest-managed client climbed to about <b>'+Math.round(spec.persubBenchmark[spec.persubBenchmark.length-1])+'</b>. A well-run lifecycle makes each new subscriber worth more as you scale, not less.';
     host.appendChild(note);return;}
+  const ssms=S.subs_sms||[],hasSms=ssms.some(v=>v>0);
+  if(hasSms){const cseg=document.createElement('div');cseg.className='chartseg';cseg.style.marginLeft='8px';
+    [['email','Email'],['sms','SMS'],['combined','Combined']].forEach(([v,lab])=>{const b=document.createElement('button');
+      b.className='csg'+(auditSubsChannel===v?' on':'');b.textContent=lab;
+      b.addEventListener('click',e=>{e.stopPropagation();auditSubsChannel=v;auditGrowth(host,S,spec);});cseg.appendChild(b);});
+    host.appendChild(cseg);}
+  const chSeries=a=>auditSubsChannel==='sms'?(S.subs_sms||[]):auditSubsChannel==='combined'?S.subs.map((v,i)=>v+((S.subs_sms||[])[i]||0)):S.subs;
+  const chMtd=c=>!c?0:(auditSubsChannel==='sms'?(c.mtd.subs_sms||0):auditSubsChannel==='combined'?((c.mtd.subs||0)+(c.mtd.subs_sms||0)):c.mtd.subs);
   const cur=(S.current&&S.current.mtd)?S.current:null;
   const m=S.months.slice(-12).concat(cur?[cur.month]:[]);
-  const subs=S.subs.slice(-12).concat(cur?[cur.mtd.subs]:[]);
+  const csub=chSeries();
+  const subs=csub.slice(-12).concat(cur?[chMtd(cur)]:[]);
   const flow=S.flow.slice(-12).concat(cur?[cur.mtd.flow]:[]);
-  const bs=S.subs.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3, bf=S.flow.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3;
+  const bs=csub.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3, bf=S.flow.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3;
   const K=0.8;   // diminishing returns: scaled paid acquisition brings lower-intent subs, so revenue grows sub-linearly with the list
   const target=subs.map(s=>bs>0?Math.round(bf*Math.pow(s/bs,K)):0);
-  auditDual(host,m,subs,flow,nfmt,kfmt,'New subscribers / mo','Flow revenue (actual)',target,'Realistic target (diminishing returns)',cur?m.length-1:-1);}
+  const blab=auditSubsChannel==='sms'?'New SMS subs / mo':auditSubsChannel==='combined'?'New subs (email+SMS) / mo':'New subscribers / mo';
+  auditDual(host,m,subs,flow,nfmt,kfmt,blab,'Flow revenue (actual)',target,'Realistic target (diminishing returns)',cur?m.length-1:-1);}
 function auditFlowRpr(host,S){const cur=(S.current&&S.current.mtd)?S.current:null;
   const cm=S.months.slice(-12),m=cm.concat(cur?[cur.month]:[]);
   const dv=cm.map(mm=>(S.flows||[]).filter(r=>r[0]===mm).reduce((a,r)=>a+r[2],0));
@@ -1093,6 +1112,12 @@ function wireControls(){
     document.getElementById('view-dash').hidden=v!=='dash';document.getElementById('view-audit').hidden=v!=='audit';
     if(v==='audit')renderAudit();});
   document.getElementById('curTog').addEventListener('click',e=>{inProgress=!inProgress;e.currentTarget.setAttribute('aria-pressed',inProgress);applyMode();renderDash();});
+  document.getElementById('subsChanSeg').addEventListener('click',e=>{const b=e.target.closest('.csg');if(!b)return;
+    subsChannel=b.dataset.ch;
+    document.querySelectorAll('#subsChanSeg .csg').forEach(x=>x.classList.toggle('on',x===b));
+    const cap=document.getElementById('subs-cap');
+    if(cap)cap.textContent=subsChannel==='sms'?'Unique “Subscribed to Text Messaging Marketing” profiles.':subsChannel==='combined'?'“Subscribed to List” (email) plus SMS marketing subscriptions.':'Unique “Subscribed to List” profiles.';
+    applyMode();renderDash();});
   document.getElementById('themeBtn').addEventListener('click',toggleTheme);
   document.getElementById('outBtn').addEventListener('click',()=>sb.auth.signOut().then(()=>location.reload()));
   matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{applyPalette();buildSwitcher();renderDash();});
