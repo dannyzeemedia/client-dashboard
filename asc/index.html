@@ -135,6 +135,19 @@
   .abar .abv{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600;white-space:nowrap}
   .abar.flag .abv{color:var(--crit)}
   @media(max-width:620px){.abar{grid-template-columns:120px 1fr auto}}
+  .aflist{margin-top:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .aflist summary{cursor:pointer;padding:11px 14px;font-size:13px;font-weight:700;color:var(--ink2);background:var(--surface-2);list-style:none}
+  .aflist summary::-webkit-details-marker{display:none}
+  .aflist summary::before{content:'▸ ';color:var(--muted)}
+  .aflist[open] summary::before{content:'▾ '}
+  .aflist-body{padding:6px 8px}
+  .aflist-row{display:grid;grid-template-columns:1fr 130px 96px;gap:12px;align-items:center;padding:8px 10px;font-size:13.5px;border-radius:7px}
+  .aflist-row:not(.aflist-head):hover{background:var(--surface-2)}
+  .aflist-row.aflist-head{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .aflist-row a{color:var(--flow);font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .aflist-row a:hover{text-decoration:underline}
+  .aflist-row span{font-variant-numeric:tabular-nums;color:var(--ink2);text-align:right}
+  .aflist-row.flag span:last-child{color:var(--crit);font-weight:700}
 
   .banner{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--ink2);
     background:color-mix(in srgb,var(--good) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--good) 30%,var(--border));
@@ -365,6 +378,7 @@ let REPORT=null, SLUG='', RANGE=12, CMP='prev';
 let tlaunched=[], tconcluded=[], twon=[], subsR3=[];
 // multi-client: all series/reports the logged-in user may read, keyed by slug
 let SERIES={}, REPORTS={}, ORDER=[], ACTIVE='';
+let auditUnsubBlended=false;   // audit #3 unsub chart: false = flow vs campaign split, true = blended
 // base (complete-month) series + the in-progress block; applyMode() derives the
 // working arrays above from these depending on the "include current" toggle.
 let BM=[],Bflow=[],Bcamp=[],Bsubs=[],Bcsends=[],Bcrecip=[],Bunsub=[],Bspam=[],BFLOW=[],Btl=[],Btc=[],Btw=[];
@@ -777,35 +791,61 @@ function auditFlowRpr(host,S){const cur=(S.current&&S.current.mtd)?S.current:nul
   const bs=S.subs.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3, bf=S.flow.slice(-12).slice(0,3).reduce((a,b)=>a+b,0)/3;
   const tgtRpr=subs.map((s,i)=>{const trev=bs>0?bf*Math.pow(s/bs,0.8):0;return dv[i]?+(trev/dv[i]).toFixed(3):0;});
   auditDual(host,m,dv,rpr,nfmt,v=>v.toFixed(2),'Emails delivered / mo','$/Rec (actual)',tgtRpr,'Realistic $/Rec target (diminishing returns)',cur?m.length-1:-1);}
-function auditTrend(host,spec,S){const cur=(S.current&&S.current.mtd)?S.current:null;
-  const m=S.months.slice(-12).concat(cur?[cur.month]:[]);let data,fmt;
-  if(spec.metric==='unsub'){data=S.unsub.slice(-12).concat(cur?[cur.mtd.unsub]:[]);fmt=v=>v.toFixed(2)+'%';}
-  else if(spec.metric==='email_share'){const f=S.flow.slice(-12),c=S.camp.slice(-12),st=(S.store||[]).slice(-12);
-    data=f.map((v,i)=>st[i]?+((v+c[i])/st[i]*100).toFixed(1):0);
-    if(cur){const cs=cur.mtd.store||0;data.push(cs?+((cur.mtd.flow+cur.mtd.camp)/cs*100).toFixed(1):0);}
-    fmt=v=>v.toFixed(0)+'%';}
-  else return;
-  const ipIdx=cur?m.length-1:-1;
-  const W=1080,H=260,PL=54,PR=18,PT=16,PB=36,iw=W-PL-PR,ih=H-PT-PB,n=m.length;
-  const mx=niceMax(Math.max(...data,spec.ref||0));const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+function auditLineChart(host,months,series,fmt,ref,reflabel,ipIdx){
+  const W=1080,H=260,PL=54,PR=18,PT=16,PB=36,iw=W-PL-PR,ih=H-PT-PB,n=months.length;
+  const all=series.flatMap(s=>s.data.filter(v=>v!=null));if(ref!=null)all.push(ref);
+  const mx=niceMax(Math.max(...all,0.0001));const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
   const x=i=>PL+(n<=1?iw/2:iw*i/(n-1)),y=v=>PT+ih-(v/mx)*ih,ev=lblEvery(n);
   for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(mx*g/4),y2:y(mx*g/4)}));
     const t=el('text',{class:'ax',x:PL-8,y:y(mx*g/4)+4,'text-anchor':'end'});t.textContent=fmt(mx*g/4);svg.appendChild(t);}
-  if(spec.ref!=null){svg.appendChild(el('line',{x1:PL,x2:W-PR,y1:y(spec.ref),y2:y(spec.ref),stroke:'var(--good)','stroke-width':1.4,'stroke-dasharray':'5 4'}));
-    const rt=el('text',{class:'ax',style:'fill:var(--good)',x:W-PR,y:y(spec.ref)-5,'text-anchor':'end'});rt.textContent=spec.reflabel||'';svg.appendChild(rt);}
-  let d='';data.forEach((v,i)=>{d+=(i===0?'M':'L')+x(i)+' '+y(v);});
-  svg.appendChild(el('path',{d,fill:'none',stroke:'var(--flow)','stroke-width':2.5,'stroke-linejoin':'round'}));
-  data.forEach((v,i)=>{if(i===ipIdx)svg.appendChild(el('circle',{cx:x(i),cy:y(v),r:4.5,fill:'var(--surface)',stroke:'var(--flow)','stroke-width':2}));
-    else svg.appendChild(el('circle',{cx:x(i),cy:y(v),r:3,fill:'var(--flow)'}));});
-  m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-12,'text-anchor':'middle'});t.textContent=mlabel(mm)+(i===ipIdx?'*':'');svg.appendChild(t);}});
+  if(ref!=null){svg.appendChild(el('line',{x1:PL,x2:W-PR,y1:y(ref),y2:y(ref),stroke:'var(--good)','stroke-width':1.4,'stroke-dasharray':'5 4'}));
+    const rt=el('text',{class:'ax',style:'fill:var(--good)',x:W-PR,y:y(ref)-5,'text-anchor':'end'});rt.textContent=reflabel||'';svg.appendChild(rt);}
+  series.forEach(s=>{let d='';s.data.forEach((v,i)=>{if(v==null)return;d+=(d?'L':'M')+x(i)+' '+y(v);});
+    svg.appendChild(el('path',{d,fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-linejoin':'round'}));
+    s.data.forEach((v,i)=>{if(v==null)return;if(i===ipIdx)svg.appendChild(el('circle',{cx:x(i),cy:y(v),r:4.5,fill:'var(--surface)',stroke:s.color,'stroke-width':2}));
+      else svg.appendChild(el('circle',{cx:x(i),cy:y(v),r:3,fill:s.color}));});});
+  months.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-12,'text-anchor':'middle'});t.textContent=mlabel(mm)+(i===ipIdx?'*':'');svg.appendChild(t);}});
   svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
-  const nm=spec.metric==='unsub'?'Unsub rate':'Email % of store';
   const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
   const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
   hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
     const i=Math.max(0,Math.min(n-1,Math.round((px-PL)/iw*(n-1))));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
-    showTip(host,e,mlabel(m[i]),[[nm,data[i],'var(--flow)',fmt]],fmt);});
+    showTip(host,e,mlabel(months[i]),series.filter(s=>s.data[i]!=null).map(s=>[s.name,s.data[i],s.color]),fmt);});
   hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);host.appendChild(svg);}
+function auditTrend(host,spec,S){host.innerHTML='';
+  const cur=(S.current&&S.current.mtd)?S.current:null;
+  const m=S.months.slice(-12).concat(cur?[cur.month]:[]),ipIdx=cur?m.length-1:-1;
+  const cat=(arr,cv)=>arr.slice(-12).concat(cur?[cv]:[]);
+  let series,fmt=v=>v.toFixed(2)+'%';
+  if(spec.metric==='unsub'){
+    if(spec.breakout){
+      const btn=document.createElement('button');btn.className='miniToggle';btn.style.cssText='position:static;margin:0 0 10px';
+      btn.setAttribute('aria-pressed',auditUnsubBlended);btn.innerHTML='<span class="dot"></span>Blended';
+      btn.addEventListener('click',ev=>{ev.stopPropagation();auditUnsubBlended=!auditUnsubBlended;auditTrend(host,spec,S);});
+      host.appendChild(btn);
+      series=auditUnsubBlended
+        ?[{name:'Blended unsub rate',data:cat(S.unsub,cur&&cur.mtd.unsub),color:'var(--ink2)'}]
+        :[{name:'Flow unsub rate',data:cat(S.unsub_flow||[],cur&&cur.mtd.unsub_flow),color:'var(--flow)'},
+          {name:'Campaign unsub rate',data:cat(S.unsub_camp||[],cur&&cur.mtd.unsub_camp),color:'var(--camp)'}];
+    } else series=[{name:'Unsub rate',data:cat(S.unsub,cur&&cur.mtd.unsub),color:'var(--flow)'}];
+  } else if(spec.metric==='email_share'){fmt=v=>v.toFixed(0)+'%';
+    const f=S.flow.slice(-12),c=S.camp.slice(-12),st=(S.store||[]).slice(-12);
+    let data=f.map((v,i)=>st[i]?+((v+c[i])/st[i]*100).toFixed(1):0);
+    if(cur){const cs=cur.mtd.store||0;data.push(cs?+((cur.mtd.flow+cur.mtd.camp)/cs*100).toFixed(1):0);}
+    series=[{name:'Email % of store',data,color:'var(--flow)'}];
+  } else return;
+  if(series.length>1)host.appendChild(alegend.apply(null,series.map(s=>[s.name,s.color])));
+  auditLineChart(host,m,series,fmt,spec.ref,spec.reflabel,ipIdx);
+  if(spec.metric==='unsub'&&(S.flow_unsub||[]).length){
+    const det=document.createElement('details');det.className='aflist';
+    det.innerHTML='<summary>Top flows driving unsubscribes (last 12 months) — click a flow to open it in Klaviyo</summary>';
+    const b=document.createElement('div');b.className='aflist-body';
+    b.innerHTML='<div class="aflist-row aflist-head"><span>Flow</span><span>Unsubscribes</span><span>Unsub rate</span></div>'+
+      S.flow_unsub.slice(0,15).map(f=>{const rate=f[3]?f[2]/f[3]*100:0;
+        return '<div class="aflist-row'+(rate>=0.8?' flag':'')+'"><a href="https://www.klaviyo.com/flow/'+f[0]+'/edit" target="_blank" rel="noopener">'+f[1]+' ↗</a>'+
+          '<span>'+f[2].toLocaleString()+'</span><span>'+rate.toFixed(2)+'%</span></div>';}).join('');
+    det.appendChild(b);host.appendChild(det);
+  }}
 function auditBars(host,spec,S){const map=auditFlowAgg(S,12);let items=[];
   const RET=/post purchase|winback|replenish|back in stock/i;
   if(spec.source==='concentration'){const tot=Object.values(map).reduce((a,v)=>a+v.rev,0)||1;
