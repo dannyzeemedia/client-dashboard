@@ -724,24 +724,35 @@ function renderAuditChart(host,spec,S){
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
   if(spec.type==='bars')return auditBars(host,spec,S);}
-function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab){
+function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab){
   const W=1080,H=300,PL=56,PR=66,PT=16,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=months.length,step=iw/n,bw=step*0.55;
-  const bmax=niceMax(Math.max(...bars,0)),lmax=niceMax(Math.max(...line.filter(v=>v!=null),0.0001));
+  const bmax=niceMax(Math.max(...bars,0));
+  const lall=line.filter(v=>v!=null).concat((line2||[]).filter(v=>v!=null));
+  const lmax=niceMax(Math.max(...lall,0.0001));
   const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
-  const yb=v=>PT+ih-(v/bmax)*ih,yl=v=>PT+ih-(v/lmax)*ih,ev=lblEvery(n);
+  const yb=v=>PT+ih-(v/bmax)*ih,yl=v=>PT+ih-(v/lmax)*ih,ev=lblEvery(n),cx=i=>PL+step*i+step/2;
   for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:yb(bmax*g/4),y2:yb(bmax*g/4)}));
     const tl=el('text',{class:'ax',x:PL-8,y:yb(bmax*g/4)+4,'text-anchor':'end'});tl.textContent=bfmt(bmax*g/4);svg.appendChild(tl);
     const tr=el('text',{class:'ax',style:'fill:var(--camp)',x:W-PR+8,y:yl(lmax*g/4)+4,'text-anchor':'start'});tr.textContent=lfmt(lmax*g/4);svg.appendChild(tr);}
+  if(line2){let d='';months.forEach((m,i)=>{d+=(i===0?'M':'L')+cx(i)+' '+yl(line2[i]);});
+    for(let i=months.length-1;i>=0;i--){d+='L'+cx(i)+' '+yl(line[i]);}d+='Z';
+    svg.appendChild(el('path',{d,fill:'var(--crit)','fill-opacity':0.1,stroke:'none'}));}   // shortfall band
   months.forEach((m,i)=>{const x=PL+step*i+(step-bw)/2,h=bars[i]/bmax*ih;
     svg.appendChild(el('rect',{x,y:PT+ih-h,width:bw,height:Math.max(h,0),rx:3,fill:'var(--aqua)','fill-opacity':.8}));
-    if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:PL+step*i+step/2,y:H-14,'text-anchor':'middle'});t.textContent=mlabel(m);svg.appendChild(t);}});
-  let d='';line.forEach((v,i)=>{if(v==null)return;const x=PL+step*i+step/2;d+=(d?'L':'M')+x+' '+yl(v);});
+    if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:cx(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(m);svg.appendChild(t);}});
+  if(line2){let d='';months.forEach((m,i)=>{d+=(i===0?'M':'L')+cx(i)+' '+yl(line2[i]);});
+    svg.appendChild(el('path',{d,fill:'none',stroke:'var(--ink2)','stroke-width':2,'stroke-dasharray':'5 4','stroke-linejoin':'round'}));}   // expected
+  let d='';line.forEach((v,i)=>{if(v==null)return;d+=(d?'L':'M')+cx(i)+' '+yl(v);});
   svg.appendChild(el('path',{d,fill:'none',stroke:'var(--camp)','stroke-width':2.5,'stroke-linejoin':'round'}));
-  line.forEach((v,i)=>{if(v!=null)svg.appendChild(el('circle',{cx:PL+step*i+step/2,cy:yl(v),r:3,fill:'var(--camp)'}));});
+  line.forEach((v,i)=>{if(v!=null)svg.appendChild(el('circle',{cx:cx(i),cy:yl(v),r:3,fill:'var(--camp)'}));});
   svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
-  host.appendChild(alegend([blab,'var(--aqua)'],[llab,'var(--camp)']));host.appendChild(svg);}
-function auditGrowth(host,S){const m=S.months.slice(-12);
-  auditDual(host,m,S.subs.slice(-12),S.flow.slice(-12),nfmt,kfmt,'New subscribers / mo','Flow revenue / mo (right)');}
+  const leg=line2?alegend([blab,'var(--aqua)'],[llab,'var(--camp)'],[l2lab+' (dashed)','var(--ink2)'])
+                 :alegend([blab,'var(--aqua)'],[llab,'var(--camp)']);
+  host.appendChild(leg);host.appendChild(svg);}
+function auditGrowth(host,S){const m=S.months.slice(-12),subs=S.subs.slice(-12),flow=S.flow.slice(-12);
+  const bs=subs.slice(0,3).reduce((a,b)=>a+b,0),bf=flow.slice(0,3).reduce((a,b)=>a+b,0);
+  const ratio=bs?bf/bs:0, expected=subs.map(s=>Math.round(s*ratio));   // flow rev if each new sub held its early value
+  auditDual(host,m,subs,flow,nfmt,kfmt,'New subscribers / mo','Flow revenue (actual)',expected,'Expected at early per-subscriber value');}
 function auditFlowRpr(host,S){const m=S.months.slice(-12);
   const dv=m.map(mm=>(S.flows||[]).filter(r=>r[0]===mm).reduce((a,r)=>a+r[2],0));
   const rev=S.flow.slice(-12),rpr=rev.map((v,i)=>dv[i]?+(v/dv[i]).toFixed(3):0);
