@@ -778,7 +778,7 @@ function renderAuditChart(host,spec,S){
     if(spec.source==='volume'&&(S.flow_summary||[]).length)return auditVolume(host,S,spec);
     return auditBars(host,spec,S);}}
 function auditTesting(host,spec){
-  const tpw=spec.testsPerWeek||6, banked=Math.round(tpw*52*(spec.winAvg||56)/100);
+  const tpw=spec.testsPerWeek||6, banked=Math.round(tpw*52*(spec.winNow||67)/100);
   const wrap=document.createElement('div');wrap.className='tst';
   wrap.innerHTML=
     '<div class="tst-col them"><div class="tst-h">This account</div>'
@@ -786,7 +786,7 @@ function auditTesting(host,spec){
     +'<div class="tst-col us"><div class="tst-h">Zee.Media testing engine</div><ul class="tst-list">'
       +'<li><b>'+(spec.newMsgs||3)+'</b> new messages per week</li>'
       +'<li><b>'+tpw+'</b> tests per week — '+(spec.subjectTests||3)+' subject-line &amp; preview, '+(spec.designTests||3)+' full design overhauls</li>'
-      +'<li><b>~'+(spec.winAvg||56)+'%</b> average win rate, now <b>~'+(spec.winNow||67)+'%</b> and climbing</li>'
+      +'<li><b>~'+(spec.winNow||67)+'%</b> global win rate, and climbing</li>'
       +'<li>A central brain compounds learnings from every test, across every account</li>'
     +'</ul></div>';
   host.appendChild(wrap);
