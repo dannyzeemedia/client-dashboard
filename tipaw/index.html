@@ -132,8 +132,11 @@
   .cta-lead b{color:var(--flow)}
   .cta-lead span{color:var(--muted);font-weight:500;font-size:15px}
   .cta-sub{font-size:13.5px;color:var(--ink2);margin:9px auto 18px;max-width:580px;line-height:1.55}
-  .cta-btn{display:inline-block;background:var(--flow);color:var(--surface);font-weight:700;font-size:14px;padding:12px 28px;border-radius:9px;text-decoration:none}
+  .cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .cta-btn{display:inline-block;background:var(--flow);color:var(--surface);font-weight:700;font-size:14px;padding:12px 28px;border-radius:9px;text-decoration:none;border:1.5px solid var(--flow)}
   .cta-btn:hover{filter:brightness(1.08)}
+  .cta-btn2{background:transparent;color:var(--flow)}
+  .cta-btn2:hover{background:color-mix(in srgb,var(--flow) 10%,transparent);filter:none}
   .anum{font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
   .achart{margin-top:2px}
   .abars{display:flex;flex-direction:column;gap:8px;margin-top:2px}
@@ -808,9 +811,11 @@ function renderAuditChart(host,spec,S){
     return auditBars(host,spec,S);}}
 function auditCta(host,spec){
   const wrap=document.createElement('div');wrap.className='cta';
+  var btns='<a class="cta-btn" href="'+(spec.url||'https://zee.media/#pricing')+'" target="_blank" rel="noopener">'+(spec.label||'Check out our prices')+' →</a>';
+  if(spec.url2)btns+='<a class="cta-btn cta-btn2" href="'+spec.url2+'" target="_blank" rel="noopener">'+(spec.label2||'Get started')+' →</a>';
   wrap.innerHTML='<div class="cta-lead">Typical client <b>'+(spec.range||'$3M–$20M')+'</b> in revenue <span>(average '+(spec.avg||'$5M–$8M')+')</span></div>'
     +'<div class="cta-sub">Smaller budget? We build a package to fit: a baseline of what we typically do, scaled to where you are. Pricing is public, no call required to see it.</div>'
-    +'<a class="cta-btn" href="'+(spec.url||'https://zee.media/#pricing')+'" target="_blank" rel="noopener">'+(spec.label||'Check out our prices')+' →</a>';
+    +'<div class="cta-btns">'+btns+'</div>';
   host.appendChild(wrap);}
 function auditTesting(host,spec){
   const tpw=spec.testsPerWeek||6, banked=Math.round(tpw*52*(spec.winNow||67)/100);
