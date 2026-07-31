@@ -154,6 +154,8 @@
   @media(max-width:640px){.aflist-row{grid-template-columns:1fr auto auto}.aflist-row a.fl{display:none}}
   .conc{display:flex;flex-direction:column;gap:7px;margin-top:4px}
   .conc-row{display:grid;grid-template-columns:1.5fr 2fr 96px 78px;gap:14px;align-items:center;font-size:13.5px}
+  .conc.rntbl .conc-row{grid-template-columns:1.7fr 130px 120px 120px}
+  .rn-cat{color:var(--muted);font-size:12.5px}
   .conc-row.conc-head{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
   .conc-row a{color:var(--flow);font-weight:600;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .conc-row a:hover{text-decoration:underline}
@@ -757,10 +759,32 @@ function renderAuditChart(host,spec,S){
   if(spec.type==='growth')return auditGrowth(host,S);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
+  if(spec.type==='reentry')return auditReentry(host,S);
   if(spec.type==='bars'){
     if(spec.source==='concentration'&&(S.flow_summary||[]).length)return auditConcentration(host,S,spec);
     if(spec.source==='volume'&&(S.flow_summary||[]).length)return auditVolume(host,S,spec);
     return auditBars(host,spec,S);}}
+function auditReentry(host,S){
+  const cls=n=>{n=(n||'').toLowerCase();
+    if(/abandon/.test(n))return{cat:'Abandonment',rec:'4–7 days',ab:true};
+    if(/winback|sunset|lapsed|bounce/.test(n))return{cat:'Winback',rec:'30–90 days'};
+    if(/welcome|onboard/.test(n))return{cat:'Welcome',rec:'Once'};
+    if(/review|trustpilot/.test(n))return{cat:'Review',rec:'Once / long'};
+    if(/post.?purchase|order|thank/.test(n))return{cat:'Post-purchase',rec:'Once / long'};
+    return{cat:'Other',rec:'—'};};
+  const rows=(S.flow_reentry||[]).map(f=>{const c=cls(f[1]);return{fid:f[0],name:f[1],days:f[2],cat:c.cat,rec:c.rec,flag:!!(c.ab&&(f[2]==null||f[2]>7))};});
+  rows.sort((a,b)=>(b.flag-a.flag)||((b.days||0)-(a.days||0)));
+  const wrap=document.createElement('div');wrap.className='conc rntbl';
+  wrap.innerHTML='<div class="conc-row conc-head"><span>Flow</span><span>Type</span><span class="cn">Current re-entry</span><span class="cn">Recommended</span></div>'
+    +rows.map(r=>'<div class="conc-row'+(r.flag?' flag':'')+'">'
+      +'<a href="https://www.klaviyo.com/flow/'+r.fid+'/edit" target="_blank" rel="noopener" title="'+r.name+'">'+r.name+' ↗</a>'
+      +'<span class="rn-cat">'+r.cat+'</span>'
+      +'<span class="cn"'+(r.flag?' style="color:var(--crit);font-weight:700"':'')+'>'+(r.days==null?'Once':r.days+' days')+'</span>'
+      +'<span class="cn">'+r.rec+'</span></div>').join('');
+  host.appendChild(wrap);
+  const note=document.createElement('div');note.style.cssText='font-size:12px;color:var(--muted);margin-top:10px';
+  note.textContent='Abandonment flows should re-open after 4–7 days. The ones in red re-open only after 30–60, so a shopper who abandons again within the month never re-enters, and that repeat-abandoner revenue is lost.';
+  host.appendChild(note);}
 function auditVolume(host,S,spec){
   const fs=(S.flow_summary||[]).slice().sort((a,b)=>b[3]-a[3]).slice(0,10),mx=Math.max(...fs.map(r=>r[3]),1);
   const rc=v=>v<0.3?'var(--crit)':v>=0.5?'var(--aqua)':'var(--ink2)';
