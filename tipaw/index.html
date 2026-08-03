@@ -91,6 +91,10 @@
     display:flex;align-items:center;line-height:0;opacity:.4;transition:opacity .15s,background .15s,border-color .15s}
   .clogo-btn:hover{opacity:.72}
   .clogo-btn[aria-current="true"]{opacity:1;background:var(--surface-2);border-color:var(--border)}
+  .glogo{height:40px;width:auto;max-width:132px;display:block}
+  .glogo.inv{filter:brightness(0) invert(1)}
+  .gdiv{width:1px;height:28px;background:var(--border);display:inline-block;flex:none}
+  @media(max-width:560px){.glogo{height:30px;max-width:96px}}
   .swlogo{height:24px;width:auto;max-width:190px;display:block}
   .clogo-btn.icon .swlogo{height:29px}
   .swname{font-weight:800;font-size:15px;color:var(--ink);white-space:nowrap}
@@ -605,8 +609,12 @@ function buildMenu(){const host=document.getElementById('cmenu');host.innerHTML=
     const it=e.target.closest('.cm-item');if(!it)return;panel.hidden=true;if(it.dataset.slug!==ACTIVE)switchTo(it.dataset.slug);});
   host.appendChild(btn);host.appendChild(panel);}
 function buildSwitcher(){const b=document.getElementById('brand');b.innerHTML='';
+  const AS=SERIES[ACTIVE]||{};
+  if(AS.group_logo){const gl=new Image();gl.className='glogo'+((isDark()&&AS.group_logo_invert)?' inv':'');
+    gl.src='../logos/'+AS.group_logo;gl.alt=AS.group_name||'';gl.title=AS.group_name||'';b.appendChild(gl);
+    const dv=document.createElement('span');dv.className='gdiv';b.appendChild(dv);}
   const wrap=document.createElement('div');wrap.className='cswitch';
-  const g=(SERIES[ACTIVE]||{}).group;
+  const g=AS.group;
   const grp=ORDER.filter(s=>(SERIES[s].group||s)===g);   // only same-owner siblings get logos
   const single=grp.length<2;
   grp.forEach(slug=>{const data=SERIES[slug];
@@ -1617,7 +1625,7 @@ function wireControls(){
 }
 
 // ---- boot ----
-const CORDER=['drwoof','asc'];   // preferred switcher order; unknown slugs appended
+const CORDER=['drwoof','asc','jelibuilt','farmulated'];   // preferred switcher order; unknown slugs appended
 async function loadAndRender(){ try{
   const [ser,rep]=await Promise.all([
     sb.from('client_series').select('data'),                                   // ALL readable clients
@@ -1634,10 +1642,13 @@ async function loadAndRender(){ try{
   ORDER=[...CORDER.filter(s=>slugs.includes(s)), ...slugs.filter(s=>!CORDER.includes(s)).sort()];
   const m=location.pathname.match(/dashboard\/([^\/]+)\//);
   const folder=m?m[1]:null;
-  if(folder && !SERIES[folder]){ await showWrongAccount(folder); return; }   // signed into an account without this client
+  const groupClients=folder?ORDER.filter(s=>(SERIES[s].group||s)===folder):[];   // folder may be a group slug (e.g. /igloo/)
+  const folderIsClient=!!(folder&&SERIES[folder]);
+  const folderIsGroup=!!(folder&&!folderIsClient&&groupClients.length);
+  if(folder && !folderIsClient && !folderIsGroup){ await showWrongAccount(folder); return; }   // signed into an account without this client/group
   buildSwitcher();
   wireControls();
-  let start=(folder&&ORDER.includes(folder))?folder:ORDER[0];   // default: the folder's client
+  let start=folderIsClient?folder:folderIsGroup?groupClients[0]:ORDER[0];   // folder's client, or first client of the folder's group
   const multiAcct=[...new Set(ORDER.map(s=>SERIES[s].group||s))].length>1;
   if(multiAcct){const def=getDefaultClient();if(def&&ORDER.includes(def))start=def;}   // owner's chosen default wins
   switchTo(start);
