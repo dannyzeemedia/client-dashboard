@@ -222,6 +222,26 @@
   .vidframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
   .vidclose{position:absolute;top:-42px;right:-4px;background:transparent;border:none;color:#fff;font-size:32px;line-height:1;cursor:pointer;padding:4px 10px}
   .vidclose:hover{opacity:.7}
+  .cmt{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
+  .cmt-btn{background:none;border:1px solid var(--border);color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:8px;cursor:pointer}
+  .cmt-btn.has{color:var(--flow);border-color:color-mix(in srgb,var(--flow) 40%,var(--border));background:color-mix(in srgb,var(--flow) 8%,var(--surface))}
+  .cmt-btn:hover{border-color:var(--flow)}
+  .cmt-panel{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .cmt-item{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--ink2);background:var(--surface-2);border-radius:6px;padding:6px 8px;line-height:1.45}
+  .cmt-item b{color:var(--ink)}
+  .cmt-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;flex:none;padding:0 2px}
+  .cmt-del:hover{color:var(--crit)}
+  .cmt-in{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;padding:6px 8px;resize:vertical}
+  .cmt-actions{display:flex;align-items:center;gap:10px}
+  .cmt-save{background:var(--flow);color:var(--surface);border:none;font-weight:700;font-size:12.5px;padding:6px 14px;border-radius:7px;cursor:pointer}
+  .cmt-save:hover{filter:brightness(1.08)}
+  .cmt-hint{font-size:11px;color:var(--muted)}
+  .cmt-empty{font-size:12.5px;color:var(--muted)}
+  .cmt-fab{position:fixed;right:20px;bottom:20px;z-index:1500;width:52px;height:52px;border-radius:50%;border:none;background:var(--flow);color:var(--surface);font-size:22px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.28)}
+  .cmt-fab:hover{filter:brightness(1.08)}
+  .cmt-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--crit);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
+  .cmt-fabpanel{position:fixed;right:20px;bottom:82px;z-index:1500;width:min(360px,92vw);max-height:70vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.3);padding:14px;display:flex;flex-direction:column;gap:8px}
+  .cmt-fabhead{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 
   .filters{display:flex;align-items:center;justify-content:center;gap:9px 24px;flex-wrap:wrap;margin:20px 0 4px;
     background:color-mix(in srgb,var(--flow) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--flow) 18%,var(--border));
@@ -532,7 +552,8 @@ function switchTo(slug){ACTIVE=slug;REPORT=REPORTS[slug]||null;
   document.getElementById('view-dash').hidden=startAudit;
   document.getElementById('view-audit').hidden=!startAudit;
   renderDash();
-  if(startAudit)renderAudit();}
+  if(startAudit)renderAudit();
+  if(IS_OWNER)updateFab();}
 
 // Build the working arrays from base + (optionally) the in-progress month.
 function applyMode(){
@@ -805,6 +826,44 @@ function auditFlowAgg(S,k){const ms=new Set(S.months.slice(-k)),map={};
   return map;}
 function alegend(){const d=document.createElement('div');d.className='legend';d.style.margin='0 0 8px';
   d.innerHTML=[...arguments].map(p=>'<span><i style="background:'+p[1]+'"></i>'+p[0]+'</span>').join('');return d;}
+// ---- private owner comments (stored in the owner's Supabase auth user_metadata; RLS-private, invisible to prospects) ----
+const CMT_OWNERS=['danny@zee.media'];
+let IS_OWNER=false, COMMENTS=[];
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+async function loadOwnerComments(){try{const {data}=await sb.auth.getUser();const u=data&&data.user;
+  IS_OWNER=!!(u&&u.email&&CMT_OWNERS.includes(u.email.toLowerCase()));
+  COMMENTS=(u&&u.user_metadata&&Array.isArray(u.user_metadata.dash_comments))?u.user_metadata.dash_comments:[];
+}catch(e){IS_OWNER=false;COMMENTS=[];}}
+async function saveComments(){try{await sb.auth.updateUser({data:{dash_comments:COMMENTS}});}catch(e){console.warn('note save failed',e);}}
+function addComment(anchor,meta,body){COMMENTS.push({id:'c'+Date.now()+Math.floor(Math.random()*1e4),anchor,slug:meta.slug,view:meta.view,card:meta.card||'',body,ts:new Date().toISOString(),status:'open'});saveComments();}
+function delComment(id){COMMENTS=COMMENTS.filter(c=>c.id!==id);saveComments();}
+function cardCmtBlock(anchor,meta){const wrap=document.createElement('div');wrap.className='cmt';
+  function draw(){const mine=COMMENTS.filter(c=>c.anchor===anchor);
+    wrap.innerHTML='<button class="cmt-btn'+(mine.length?' has':'')+'">💬 '+(mine.length?mine.length+' note'+(mine.length>1?'s':''):'Comment')+'</button>'
+      +'<div class="cmt-panel" hidden>'+mine.map(c=>'<div class="cmt-item"><span>'+esc(c.body)+'</span><button class="cmt-del" data-id="'+c.id+'" title="Delete">✕</button></div>').join('')
+      +'<textarea class="cmt-in" rows="2" placeholder="Leave a note for review…"></textarea><div class="cmt-actions"><button class="cmt-save">Save note</button><span class="cmt-hint">Only you can see this.</span></div></div>';
+    const btn=wrap.querySelector('.cmt-btn'),panel=wrap.querySelector('.cmt-panel');
+    btn.addEventListener('click',e=>{e.stopPropagation();panel.hidden=!panel.hidden;});
+    wrap.querySelectorAll('.cmt-del').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();delComment(d.dataset.id);draw();updateFab();}));
+    const save=wrap.querySelector('.cmt-save'),ta=wrap.querySelector('.cmt-in');
+    save.addEventListener('click',e=>{e.stopPropagation();const t=ta.value.trim();if(!t)return;addComment(anchor,meta,t);draw();updateFab();wrap.querySelector('.cmt-panel').hidden=false;});}
+  draw();return wrap;}
+function ensureFab(){if(!IS_OWNER||document.getElementById('cmtFab'))return;
+  const fab=document.createElement('button');fab.id='cmtFab';fab.className='cmt-fab';fab.type='button';
+  const panel=document.createElement('div');panel.id='cmtFabPanel';panel.className='cmt-fabpanel';panel.hidden=true;
+  document.body.appendChild(fab);document.body.appendChild(panel);
+  fab.addEventListener('click',e=>{e.stopPropagation();panel.hidden=!panel.hidden;if(!panel.hidden)drawFab();});
+  document.addEventListener('click',e=>{if(!panel.contains(e.target)&&e.target!==fab)panel.hidden=true;});}
+function updateFab(){if(!IS_OWNER)return;ensureFab();const fab=document.getElementById('cmtFab');if(!fab)return;
+  const n=COMMENTS.filter(c=>c.slug===ACTIVE).length;fab.innerHTML='💬'+(n?'<span class="cmt-badge">'+n+'</span>':'');
+  const p=document.getElementById('cmtFabPanel');if(p&&!p.hidden)drawFab();}
+function drawFab(){const p=document.getElementById('cmtFabPanel');if(!p)return;const mine=COMMENTS.filter(c=>c.slug===ACTIVE);
+  p.innerHTML='<div class="cmt-fabhead">Notes · '+esc(SERIES[ACTIVE]?SERIES[ACTIVE].name:ACTIVE)+'</div>'
+    +(mine.length?mine.map(c=>'<div class="cmt-item"><span>'+(c.card?'<b>'+esc(c.card)+'</b> — ':'')+esc(c.body)+'</span><button class="cmt-del" data-id="'+c.id+'" title="Delete">✕</button></div>').join(''):'<div class="cmt-empty">No notes yet. Add one below, or use 💬 on any card.</div>')
+    +'<textarea class="cmt-in" rows="2" placeholder="General note for this client…"></textarea><div class="cmt-actions"><button class="cmt-save">Add note</button><span class="cmt-hint">Private to you.</span></div>';
+  p.querySelectorAll('.cmt-del').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();delComment(d.dataset.id);drawFab();updateFab();}));
+  const save=p.querySelector('.cmt-save'),ta=p.querySelector('.cmt-in');
+  save.addEventListener('click',e=>{e.stopPropagation();const t=ta.value.trim();if(!t)return;addComment(ACTIVE+'#general',{slug:ACTIVE,view:'general',card:''},t);drawFab();updateFab();});}
 function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElementById('audit-body');
   document.getElementById('audit-title').textContent=(A&&A.title)||'Account audit';
   document.getElementById('audit-eyebrow').textContent=(S.name||'')+' · audit';
@@ -817,7 +876,9 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
       +'<span class="sev '+sev+'">'+lbl+'</span><h3>'+f.title+'</h3></div>'
       +'<div class="abody">'+f.body+'</div>';
     const h=document.createElement('div');h.className='achart';card.appendChild(h);body.appendChild(card);
-    if(f.chart){try{renderAuditChart(h,f.chart,S);}catch(e){h.remove();}}else h.remove();});}
+    if(f.chart){try{renderAuditChart(h,f.chart,S);}catch(e){h.remove();}}else h.remove();
+    if(IS_OWNER)card.appendChild(cardCmtBlock(ACTIVE+'#a'+i,{slug:ACTIVE,view:'audit',card:(i+1)+'. '+f.title}));});
+  updateFab();}
 function renderAuditChart(host,spec,S){
   if(spec.type==='growth')return auditGrowth(host,S,spec);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
@@ -1276,6 +1337,7 @@ async function loadAndRender(){ try{
     document.getElementById('app').innerHTML='<div class="wrap" style="padding:60px 24px;color:var(--muted)">No dashboard data is available for your account yet.</div>';
     return;
   }
+  await loadOwnerComments();
   SERIES={}; ser.data.forEach(r=>{const d=r.data; if(d&&d.client_slug)SERIES[d.client_slug]=d;});
   REPORTS={}; (rep.data||[]).forEach(r=>{ if(r.client_slug&&!REPORTS[r.client_slug])REPORTS[r.client_slug]=r.data; });
   const slugs=Object.keys(SERIES);
