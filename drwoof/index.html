@@ -173,6 +173,7 @@
   .conc{display:flex;flex-direction:column;gap:7px;margin-top:4px}
   .conc-row{display:grid;grid-template-columns:1.5fr 2fr 96px 78px;gap:14px;align-items:center;font-size:13.5px}
   .conc.rntbl .conc-row{grid-template-columns:1.7fr 130px 120px 120px}
+  .conc.voltbl .conc-row{grid-template-columns:1.4fr 94px 1.7fr 84px 78px}
   .rn-cat{color:var(--muted);font-size:12.5px}
   .ggwrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:620px){.ggwrap{grid-template-columns:1fr}}
@@ -1016,39 +1017,49 @@ function auditWins(host,wins){
   wrap.querySelectorAll('.win-link').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();
     const t=document.getElementById(a.getAttribute('href').slice(1));
     if(t){t.scrollIntoView({behavior:'smooth',block:'center'});t.classList.add('flash');setTimeout(()=>t.classList.remove('flash'),1400);}}));}
+var storeView='monthly';
 function auditStoreShare(host,S){const cur=(S.current&&S.current.mtd)?S.current:null;
   const m=S.months.slice(-12).concat(cur?[cur.month]:[]);
   const store=(S.store||[]).slice(-12).concat(cur?[cur.mtd.store||0]:[]);
   const flow=S.flow.slice(-12).concat(cur?[cur.mtd.flow]:[]);
   const camp=S.camp.slice(-12).concat(cur?[cur.mtd.camp]:[]);
-  let run=0;const cum=store.map(v=>run+=v);
   const share=store.map((s,i)=>s?+(((flow[i]+camp[i])/s)*100).toFixed(1):0);
-  const W=1080,H=300,PL=64,PR=56,PT=16,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=m.length;
-  const smax=niceMax(Math.max(...cum,1)),pmax=niceMax(Math.max(...share,10));
-  const x=i=>PL+(n<=1?iw/2:iw*i/(n-1)),ys=v=>PT+ih-(v/smax)*ih,yp=v=>PT+ih-(v/pmax)*ih,ev=lblEvery(n);
-  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
-  for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:ys(smax*g/4),y2:ys(smax*g/4)}));
-    const tl=el('text',{class:'ax',x:PL-8,y:ys(smax*g/4)+4,'text-anchor':'end'});tl.textContent=kfmt(smax*g/4);svg.appendChild(tl);
-    const tr=el('text',{class:'ax',style:'fill:var(--camp)',x:W-PR+8,y:yp(pmax*g/4)+4,'text-anchor':'start'});tr.textContent=Math.round(pmax*g/4)+'%';svg.appendChild(tr);}
-  let a='M'+x(0)+' '+(PT+ih);cum.forEach((v,i)=>a+='L'+x(i)+' '+ys(v));a+='L'+x(n-1)+' '+(PT+ih)+'Z';
-  svg.appendChild(el('path',{d:a,fill:'var(--aqua)','fill-opacity':0.16,stroke:'none'}));
-  let ls='';cum.forEach((v,i)=>ls+=(i?'L':'M')+x(i)+' '+ys(v));
-  svg.appendChild(el('path',{d:ls,fill:'none',stroke:'var(--aqua)','stroke-width':2,'stroke-linejoin':'round'}));
-  let lp='';share.forEach((v,i)=>lp+=(i?'L':'M')+x(i)+' '+yp(v));
-  svg.appendChild(el('path',{d:lp,fill:'none',stroke:'var(--camp)','stroke-width':2.5,'stroke-linejoin':'round'}));
-  share.forEach((v,i)=>svg.appendChild(el('circle',{cx:x(i),cy:yp(v),r:3,fill:'var(--camp)'})));
-  m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(mm)+(cur&&i===n-1?'*':'');svg.appendChild(t);}});
-  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
-  const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
-  const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
-  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
-    const i=Math.max(0,Math.min(n-1,Math.round((px-PL)/iw*(n-1))));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
-    showTip(host,e,mlabel(m[i]),[['Cumulative store revenue',cum[i],'var(--aqua)',kfmt],['Store revenue (month)',store[i],'var(--ink2)',kfmt],['Email share of store',share[i],'var(--camp)',v=>v.toFixed(1)+'%']],kfmt);});
-  hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);
-  host.appendChild(alegend(['Cumulative store revenue','var(--aqua)'],['Email % of store','var(--camp)']));host.appendChild(svg);
-  const note=document.createElement('div');note.className='conc-note';
-  note.textContent='The area is total store revenue building up across the year; the line is email and SMS as a share of it, sitting near 14%. A big, growing store, and only a thin slice captured by email.';
-  host.appendChild(note);}
+  const box=document.createElement('div');host.appendChild(box);
+  function draw(){box.innerHTML='';
+    const seg=document.createElement('div');seg.className='chartseg';
+    [['monthly','Monthly'],['cum','Cumulative']].forEach(([v,lab])=>{const b=document.createElement('button');
+      b.className='csg'+(storeView===v?' on':'');b.textContent=lab;
+      b.addEventListener('click',e=>{e.stopPropagation();storeView=v;draw();});seg.appendChild(b);});
+    box.appendChild(seg);
+    let run=0;const cum=store.map(v=>run+=v);
+    const sv=storeView==='cum'?cum:store,svLab=storeView==='cum'?'Cumulative store revenue':'Store revenue / mo';
+    const W=1080,H=300,PL=64,PR=56,PT=16,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=m.length;
+    const smax=niceMax(Math.max(...sv,1)),pmax=niceMax(Math.max(...share,10));
+    const x=i=>PL+(n<=1?iw/2:iw*i/(n-1)),ys=v=>PT+ih-(v/smax)*ih,yp=v=>PT+ih-(v/pmax)*ih,ev=lblEvery(n);
+    const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+    for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:ys(smax*g/4),y2:ys(smax*g/4)}));
+      const tl=el('text',{class:'ax',x:PL-8,y:ys(smax*g/4)+4,'text-anchor':'end'});tl.textContent=kfmt(smax*g/4);svg.appendChild(tl);
+      const tr=el('text',{class:'ax',style:'fill:var(--flow)',x:W-PR+8,y:yp(pmax*g/4)+4,'text-anchor':'start'});tr.textContent=Math.round(pmax*g/4)+'%';svg.appendChild(tr);}
+    let a='M'+x(0)+' '+(PT+ih);sv.forEach((v,i)=>a+='L'+x(i)+' '+ys(v));a+='L'+x(n-1)+' '+(PT+ih)+'Z';
+    svg.appendChild(el('path',{d:a,fill:'var(--camp)','fill-opacity':0.20,stroke:'none'}));
+    let ls='';sv.forEach((v,i)=>ls+=(i?'L':'M')+x(i)+' '+ys(v));
+    svg.appendChild(el('path',{d:ls,fill:'none',stroke:'var(--camp)','stroke-width':2,'stroke-linejoin':'round'}));
+    let lp='';share.forEach((v,i)=>lp+=(i?'L':'M')+x(i)+' '+yp(v));
+    svg.appendChild(el('path',{d:lp,fill:'none',stroke:'var(--flow)','stroke-width':3,'stroke-linejoin':'round'}));
+    share.forEach((v,i)=>svg.appendChild(el('circle',{cx:x(i),cy:yp(v),r:3.2,fill:'var(--flow)'})));
+    m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(mm)+(cur&&i===n-1?'*':'');svg.appendChild(t);}});
+    svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+    const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
+    const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
+    hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
+      const i=Math.max(0,Math.min(n-1,Math.round((px-PL)/iw*(n-1))));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
+      showTip(box,e,mlabel(m[i]),[[svLab,sv[i],'var(--camp)',kfmt],['Email share of store',share[i],'var(--flow)',v=>v.toFixed(1)+'%']],kfmt);});
+    hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(box);});svg.appendChild(hit);
+    box.appendChild(alegend([svLab,'var(--camp)'],['Email % of store','var(--flow)']));box.appendChild(svg);
+    const note=document.createElement('div');note.className='conc-note';
+    note.textContent=storeView==='cum'?'Total store revenue building up across the year (area); email and SMS as a share of it (line), sitting near 14%. A big store, a thin slice.':'Monthly store revenue (area) against email and SMS as a share of it (line), near 14%. A big store, and only a thin slice captured by email.';
+    box.appendChild(note);}
+  draw();}
 function auditFunnel(host,spec){const st=spec.stages||[];
   const wrap=document.createElement('div');wrap.className='fnl';
   wrap.innerHTML=st.map(s=>'<div class="fnl-row'+(s.flag?' bad':'')+'">'
@@ -1124,12 +1135,12 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
     main.appendChild(ctrl);
     if(campView==='cum'){
       let run=0;const cum=rev.map(v=>run+=v);
-      auditArea(main,m,cum,kfmt,'Cumulative campaign revenue',ip);
+      auditDual(main,m,sends,cum,v=>Math.round(v),kfmt,'Campaigns sent / mo','Cumulative campaign revenue',null,null,ip,null,true);
       const note=document.createElement('div');note.className='conc-note';
-      note.textContent='Cumulative campaign revenue. A straight climb would mean each month adds as much as the last; the curve flattening shows each month is adding less than the one before.';
+      note.textContent='Bars are campaigns sent each month; the filled line is cumulative revenue. A straight climb would mean each month adds as much as the last; the curve flattening shows each month adds less than the one before.';
       main.appendChild(note);
     }else{
-      const bg=(showOverlay&&campRecipBg)?{data:recip,label:'Recipients / mo (overlay)',color:'var(--ink2)'}:null;
+      const bg=(showOverlay&&campRecipBg)?{data:recip,label:'Recipients / mo (overlay)',color:'var(--flow)'}:null;
       auditDual(main,m,sends,rev,v=>Math.round(v),kfmt,'Campaigns sent / mo','Campaign revenue',null,null,ip,bg);}}
   drawMain();
   if(spec.recipVsRev){const h2=document.createElement('div');h2.style.marginTop='22px';host.appendChild(h2);
@@ -1186,12 +1197,14 @@ function auditReentry(host,S){
 function auditVolume(host,S,spec){
   const fs=(S.flow_summary||[]).slice().sort((a,b)=>b[3]-a[3]).slice(0,10),mx=Math.max(...fs.map(r=>r[3]),1);
   const rc=v=>v<0.3?'var(--crit)':v>=0.5?'var(--aqua)':'var(--ink2)';
-  const wrap=document.createElement('div');wrap.className='conc';
+  const wrap=document.createElement('div');wrap.className='conc voltbl';
   const CS=S.currency_symbol||'$';
-  wrap.innerHTML='<div class="conc-row conc-head"><span>Flow</span><span>Emails delivered (12 mo)</span><span class="cn">RPR ('+CS+'/Rec)</span><span class="cn">Order rate</span></div>'
+  const fmtRev=v=>CS+(v>=1000?Math.round(v/1000)+'k':Math.round(v));
+  wrap.innerHTML='<div class="conc-row conc-head"><span>Flow</span><span class="cn">Revenue (12 mo)</span><span>Emails delivered (12 mo)</span><span class="cn">RPR ('+CS+'/Rec)</span><span class="cn">Order rate</span></div>'
     +fs.map(r=>{const fid=r[0],name=r[1],deliv=r[3],rpr=deliv?r[2]/deliv:0,por=deliv?r[4]/deliv*100:0;
       return '<div class="conc-row">'
         +'<a href="https://www.klaviyo.com/flow/'+fid+'/edit" target="_blank" rel="noopener" title="'+name+'">'+name+' ↗</a>'
+        +'<span class="cn" style="font-weight:700">'+fmtRev(r[2])+'</span>'
         +'<div class="conc-bar"><span style="width:'+(deliv/mx*100)+'%"></span><b>'+deliv.toLocaleString()+'</b></div>'
         +'<span class="cn" style="color:'+rc(rpr)+';font-weight:700">'+rpr.toFixed(2)+'</span>'
         +'<span class="cn">'+por.toFixed(2)+'%</span></div>';}).join('');
@@ -1217,7 +1230,7 @@ function auditConcentration(host,S,spec){
   const note=document.createElement('div');note.className='conc-note';
   note.textContent='The tick on each bar marks the same-rank flow at the benchmark (longest-managed client). Your top flow towers over a healthy distribution.';
   host.appendChild(note);}
-function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab,ipIdx,bg){ipIdx=ipIdx==null?-1:ipIdx;
+function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab,ipIdx,bg,fillLine){ipIdx=ipIdx==null?-1:ipIdx;
   const W=1080,H=300,PL=56,PR=66,PT=16,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=months.length,step=iw/n,bw=step*0.55;
   const bmax=niceMax(Math.max(...bars,0));
   const lall=line.filter(v=>v!=null).concat((line2||[]).filter(v=>v!=null));
@@ -1238,6 +1251,9 @@ function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab,ipIdx,b
     if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:cx(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(m)+(fade?'*':'');svg.appendChild(t);}});
   if(line2){let d='';months.forEach((m,i)=>{d+=(i===0?'M':'L')+cx(i)+' '+yl(line2[i]);});
     svg.appendChild(el('path',{d,fill:'none',stroke:'var(--ink2)','stroke-width':2,'stroke-dasharray':'5 4','stroke-linejoin':'round'}));}   // expected
+  if(fillLine){const idx=line.map((v,i)=>v!=null?i:-1).filter(i=>i>=0);
+    if(idx.length){let fa='M'+cx(idx[0])+' '+(PT+ih);idx.forEach(i=>fa+='L'+cx(i)+' '+yl(line[i]));fa+='L'+cx(idx[idx.length-1])+' '+(PT+ih)+'Z';
+      svg.appendChild(el('path',{d:fa,fill:'var(--camp)','fill-opacity':0.14,stroke:'none'}));}}
   let d='';line.forEach((v,i)=>{if(v==null)return;d+=(d?'L':'M')+cx(i)+' '+yl(v);});
   svg.appendChild(el('path',{d,fill:'none',stroke:'var(--camp)','stroke-width':2.5,'stroke-linejoin':'round'}));
   line.forEach((v,i)=>{if(v!=null)svg.appendChild(el('circle',{cx:cx(i),cy:yl(v),r:3,fill:'var(--camp)'}));});
