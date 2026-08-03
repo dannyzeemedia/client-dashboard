@@ -242,6 +242,21 @@
   .cmt-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--crit);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
   .cmt-fabpanel{position:fixed;right:20px;bottom:82px;z-index:1500;width:min(360px,92vw);max-height:70vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.3);padding:14px;display:flex;flex-direction:column;gap:8px}
   .cmt-fabhead{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .cmt-fab.active{outline:3px solid color-mix(in srgb,var(--flow) 45%,transparent)}
+  .cmt-fabmenu{position:fixed;right:20px;bottom:82px;z-index:1600;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.28);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:230px}
+  .cmt-fabmenu button{background:none;border:none;text-align:left;font:inherit;font-size:13px;color:var(--ink);padding:9px 12px;border-radius:8px;cursor:pointer}
+  .cmt-fabmenu button:hover{background:var(--surface-2)}
+  .pin-banner{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:1700;background:var(--flow);color:var(--surface);border-radius:999px;padding:8px 8px 8px 16px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.3);max-width:94vw}
+  .pin-banner button{background:rgba(127,127,127,.28);color:inherit;border:none;font:inherit;font-weight:700;font-size:12.5px;padding:6px 12px;border-radius:999px;cursor:pointer}
+  .pin-banner button:hover{background:rgba(127,127,127,.45)}
+  body.pinmode #app,body.pinmode #app *{cursor:crosshair!important}
+  .cmt-pin{position:absolute;transform:translate(-50%,-50%);z-index:800;width:26px;height:26px;border-radius:50% 50% 50% 2px;border:2px solid var(--surface);background:var(--flow);font-size:11px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center;padding:0}
+  .cmt-pin:hover{transform:translate(-50%,-50%) scale(1.14)}
+  .cmt-pop{position:fixed;z-index:1800;width:320px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.32);padding:12px;display:flex;flex-direction:column;gap:8px}
+  .cmt-pop-loc{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.35}
+  .cmt-del2,.cmt-cancel{background:none;border:1px solid var(--border);color:var(--ink2);font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:7px;cursor:pointer}
+  .cmt-del2:hover{color:var(--crit);border-color:var(--crit)}
+  .cmt-listpanel{position:fixed;right:20px;bottom:82px;z-index:1600;width:min(360px,92vw);max-height:70vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.3);padding:14px;display:flex;flex-direction:column;gap:8px}
   .wins{border:1px solid color-mix(in srgb,var(--flow) 28%,var(--border));border-radius:14px;background:color-mix(in srgb,var(--flow) 5%,var(--surface));padding:16px 18px;margin-bottom:24px}
   .wins-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
   .wins-t{font-size:16px;font-weight:800;letter-spacing:.02em;color:var(--ink)}
@@ -848,44 +863,94 @@ function auditFlowAgg(S,k){const ms=new Set(S.months.slice(-k)),map={};
   return map;}
 function alegend(){const d=document.createElement('div');d.className='legend';d.style.margin='0 0 8px';
   d.innerHTML=[...arguments].map(p=>'<span><i style="background:'+p[1]+'"></i>'+p[0]+'</span>').join('');return d;}
-// ---- private owner comments (stored in the owner's Supabase auth user_metadata; RLS-private, invisible to prospects) ----
+// ---- private owner comments: PIN a note on any part of the report (stored in owner's Supabase auth user_metadata; RLS-private) ----
 const CMT_OWNERS=['danny@zee.media'];
-let IS_OWNER=false, COMMENTS=[];
+let IS_OWNER=false, COMMENTS=[], PIN_MODE=false, _pop=null;
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 async function loadOwnerComments(){try{const {data}=await sb.auth.getUser();const u=data&&data.user;
   IS_OWNER=!!(u&&u.email&&CMT_OWNERS.includes(u.email.toLowerCase()));
   COMMENTS=(u&&u.user_metadata&&Array.isArray(u.user_metadata.dash_comments))?u.user_metadata.dash_comments:[];
 }catch(e){IS_OWNER=false;COMMENTS=[];}}
 async function saveComments(){try{await sb.auth.updateUser({data:{dash_comments:COMMENTS}});}catch(e){console.warn('note save failed',e);}}
-function addComment(anchor,meta,body){COMMENTS.push({id:'c'+Date.now()+Math.floor(Math.random()*1e4),anchor,slug:meta.slug,view:meta.view,card:meta.card||'',body,ts:new Date().toISOString(),status:'open'});saveComments();}
 function delComment(id){COMMENTS=COMMENTS.filter(c=>c.id!==id);saveComments();}
-function cardCmtBlock(anchor,meta){const wrap=document.createElement('div');wrap.className='cmt';
-  function draw(){const mine=COMMENTS.filter(c=>c.anchor===anchor);
-    wrap.innerHTML='<button class="cmt-btn'+(mine.length?' has':'')+'">💬 '+(mine.length?mine.length+' note'+(mine.length>1?'s':''):'Comment')+'</button>'
-      +'<div class="cmt-panel" hidden>'+mine.map(c=>'<div class="cmt-item"><span>'+esc(c.body)+'</span><button class="cmt-del" data-id="'+c.id+'" title="Delete">✕</button></div>').join('')
-      +'<textarea class="cmt-in" rows="2" placeholder="Leave a note for review…"></textarea><div class="cmt-actions"><button class="cmt-save">Save note</button><span class="cmt-hint">Only you can see this.</span></div></div>';
-    const btn=wrap.querySelector('.cmt-btn'),panel=wrap.querySelector('.cmt-panel');
-    btn.addEventListener('click',e=>{e.stopPropagation();panel.hidden=!panel.hidden;});
-    wrap.querySelectorAll('.cmt-del').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();delComment(d.dataset.id);draw();updateFab();}));
-    const save=wrap.querySelector('.cmt-save'),ta=wrap.querySelector('.cmt-in');
-    save.addEventListener('click',e=>{e.stopPropagation();const t=ta.value.trim();if(!t)return;addComment(anchor,meta,t);draw();updateFab();wrap.querySelector('.cmt-panel').hidden=false;});}
-  draw();return wrap;}
-function ensureFab(){if(!IS_OWNER||document.getElementById('cmtFab'))return;
-  const fab=document.createElement('button');fab.id='cmtFab';fab.className='cmt-fab';fab.type='button';
-  const panel=document.createElement('div');panel.id='cmtFabPanel';panel.className='cmt-fabpanel';panel.hidden=true;
-  document.body.appendChild(fab);document.body.appendChild(panel);
-  fab.addEventListener('click',e=>{e.stopPropagation();panel.hidden=!panel.hidden;if(!panel.hidden)drawFab();});
-  document.addEventListener('click',e=>{if(!panel.contains(e.target)&&e.target!==fab)panel.hidden=true;});}
-function updateFab(){if(!IS_OWNER)return;ensureFab();const fab=document.getElementById('cmtFab');if(!fab)return;
-  const n=COMMENTS.filter(c=>c.slug===ACTIVE).length;fab.innerHTML='💬'+(n?'<span class="cmt-badge">'+n+'</span>':'');
-  const p=document.getElementById('cmtFabPanel');if(p&&!p.hidden)drawFab();}
-function drawFab(){const p=document.getElementById('cmtFabPanel');if(!p)return;const mine=COMMENTS.filter(c=>c.slug===ACTIVE);
+function curView(){const a=document.getElementById('view-audit');return (a&&!a.hidden)?'audit':'dash';}
+function nearestAnchor(el){const root=document.getElementById('app');let n=el;
+  while(n&&n!==document.body){if(n.id&&n.id!=='app'&&n!==root)return n;n=n.parentElement;}
+  return document.getElementById(curView()==='audit'?'view-audit':'view-dash')||root;}
+function anchorTitle(c){if(!c)return'';const id=c.id||'';
+  if(id.indexOf('afind-')===0){const h=c.querySelector('h3');return h?h.textContent:id;}
+  if(id==='wins-board')return 'Top wins';
+  if(id==='view-audit')return 'Audit';if(id==='view-dash')return 'Dashboard';
+  const h=c.querySelector('h3,h2');return h?h.textContent:id;}
+function renderPins(){document.querySelectorAll('.cmt-pin').forEach(p=>p.remove());if(!IS_OWNER)return;ensureFab();
+  const view=curView();
+  COMMENTS.filter(c=>c.slug===ACTIVE&&c.view===view&&c.containerId&&c.relX!=null).forEach(c=>{
+    const cont=document.getElementById(c.containerId);if(!cont)return;
+    if(getComputedStyle(cont).position==='static')cont.style.position='relative';
+    const pin=document.createElement('button');pin.className='cmt-pin';pin.type='button';
+    pin.style.left=(c.relX*100)+'%';pin.style.top=(c.relY*100)+'%';pin.title=c.body;pin.textContent='💬';
+    pin.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();openPinEditor(c,e.clientX,e.clientY);});
+    cont.appendChild(pin);});
+  updateFab();}
+function closePop(){if(_pop){_pop.remove();_pop=null;}}
+function openPinEditor(c,x,y){closePop();const isNew=!c.id;
+  const pop=document.createElement('div');pop.className='cmt-pop';_pop=pop;
+  pop.innerHTML='<div class="cmt-pop-loc">📍 '+esc(c.label||c.containerLabel||'')+'</div>'
+    +'<textarea class="cmt-in" rows="3" placeholder="Your note…"></textarea>'
+    +'<div class="cmt-actions"><button class="cmt-save">Save</button>'+(isNew?'':'<button class="cmt-del2">Delete</button>')
+      +'<button class="cmt-cancel">Close</button><span class="cmt-hint">Private to you</span></div>';
+  document.body.appendChild(pop);
+  pop.style.left=Math.max(8,Math.min(x,window.innerWidth-332))+'px';
+  pop.style.top=Math.max(8,Math.min(y+10,window.innerHeight-172))+'px';
+  const ta=pop.querySelector('.cmt-in');ta.value=isNew?'':c.body;setTimeout(()=>ta.focus(),0);
+  pop.addEventListener('click',e=>e.stopPropagation());
+  pop.querySelector('.cmt-save').addEventListener('click',e=>{e.stopPropagation();const t=ta.value.trim();if(!t){closePop();return;}
+    if(isNew){COMMENTS.push({id:'c'+Date.now()+Math.floor(Math.random()*1e4),slug:ACTIVE,view:c.view,containerId:c.containerId,containerLabel:c.containerLabel,relX:c.relX,relY:c.relY,label:c.label,body:t,ts:new Date().toISOString(),status:'open'});}
+    else c.body=t;
+    saveComments();closePop();renderPins();});
+  const d=pop.querySelector('.cmt-del2');if(d)d.addEventListener('click',e=>{e.stopPropagation();delComment(c.id);closePop();renderPins();});
+  pop.querySelector('.cmt-cancel').addEventListener('click',e=>{e.stopPropagation();closePop();});}
+function enterPinMode(){if(!IS_OWNER)return;PIN_MODE=true;document.body.classList.add('pinmode');
+  if(!document.getElementById('pinBanner')){const b=document.createElement('div');b.id='pinBanner';b.className='pin-banner';
+    b.innerHTML='<span>📍 Click any part of the report to attach a note</span><button class="pb-list">All notes</button><button class="pb-done">Done</button>';
+    document.body.appendChild(b);
+    b.querySelector('.pb-done').addEventListener('click',e=>{e.stopPropagation();exitPinMode();});
+    b.querySelector('.pb-list').addEventListener('click',e=>{e.stopPropagation();openList();});}
+  updateFab();}
+function exitPinMode(){PIN_MODE=false;document.body.classList.remove('pinmode');const b=document.getElementById('pinBanner');if(b)b.remove();updateFab();}
+function openList(){const old=document.getElementById('cmtList');if(old){old.remove();return;}
+  const mine=COMMENTS.filter(c=>c.slug===ACTIVE);
+  const p=document.createElement('div');p.id='cmtList';p.className='cmt-listpanel';
   p.innerHTML='<div class="cmt-fabhead">Notes · '+esc(SERIES[ACTIVE]?SERIES[ACTIVE].name:ACTIVE)+'</div>'
-    +(mine.length?mine.map(c=>'<div class="cmt-item"><span>'+(c.card?'<b>'+esc(c.card)+'</b> — ':'')+esc(c.body)+'</span><button class="cmt-del" data-id="'+c.id+'" title="Delete">✕</button></div>').join(''):'<div class="cmt-empty">No notes yet. Add one below, or use 💬 on any card.</div>')
-    +'<textarea class="cmt-in" rows="2" placeholder="General note for this client…"></textarea><div class="cmt-actions"><button class="cmt-save">Add note</button><span class="cmt-hint">Private to you.</span></div>';
-  p.querySelectorAll('.cmt-del').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();delComment(d.dataset.id);drawFab();updateFab();}));
-  const save=p.querySelector('.cmt-save'),ta=p.querySelector('.cmt-in');
-  save.addEventListener('click',e=>{e.stopPropagation();const t=ta.value.trim();if(!t)return;addComment(ACTIVE+'#general',{slug:ACTIVE,view:'general',card:''},t);drawFab();updateFab();});}
+    +(mine.length?mine.map(c=>'<div class="cmt-item"><span><b>'+esc(c.containerLabel||c.view||'')+'</b> — '+esc(c.body)+'</span><button class="cmt-del" data-id="'+c.id+'" title="Delete">✕</button></div>').join(''):'<div class="cmt-empty">No notes yet. Tap 💬 → Pin a note, then click the report.</div>');
+  document.body.appendChild(p);p.addEventListener('click',e=>e.stopPropagation());
+  p.querySelectorAll('.cmt-del').forEach(d=>d.addEventListener('click',e=>{e.stopPropagation();delComment(d.dataset.id);p.remove();renderPins();openList();}));}
+function ensureFab(){if(!IS_OWNER||document.getElementById('cmtFab'))return;
+  const fab=document.createElement('button');fab.id='cmtFab';fab.className='cmt-fab';fab.type='button';fab.innerHTML='💬';
+  document.body.appendChild(fab);
+  fab.addEventListener('click',e=>{e.stopPropagation();const old=document.getElementById('cmtMenu');if(old){old.remove();return;}
+    const m=document.createElement('div');m.id='cmtMenu';m.className='cmt-fabmenu';
+    const n=COMMENTS.filter(c=>c.slug===ACTIVE).length;
+    m.innerHTML='<button class="cm-pin">📍 Pin a note on the report</button><button class="cm-list">📋 All notes ('+n+')</button>';
+    document.body.appendChild(m);m.addEventListener('click',ev=>ev.stopPropagation());
+    m.querySelector('.cm-pin').addEventListener('click',ev=>{ev.stopPropagation();m.remove();enterPinMode();});
+    m.querySelector('.cm-list').addEventListener('click',ev=>{ev.stopPropagation();m.remove();openList();});});}
+function updateFab(){if(!IS_OWNER)return;ensureFab();const fab=document.getElementById('cmtFab');if(!fab)return;
+  fab.classList.toggle('active',PIN_MODE);
+  const n=COMMENTS.filter(c=>c.slug===ACTIVE).length;let badge=fab.querySelector('.cmt-badge');
+  if(n){if(!badge){badge=document.createElement('span');badge.className='cmt-badge';fab.appendChild(badge);}badge.textContent=n;}
+  else if(badge)badge.remove();}
+document.addEventListener('click',function(e){   // pin-mode capture: intercept the click and attach a note
+  if(!PIN_MODE)return;
+  if(e.target.closest('.cmt-pop,.pin-banner,.cmt-fab,.cmt-fabmenu,.cmt-listpanel,.cmt-pin'))return;
+  e.preventDefault();e.stopPropagation();
+  const cont=nearestAnchor(e.target);if(!cont||!cont.id)return;
+  const rect=cont.getBoundingClientRect();
+  const relX=Math.min(1,Math.max(0,(e.clientX-rect.left)/rect.width)),relY=Math.min(1,Math.max(0,(e.clientY-rect.top)/rect.height));
+  const clicked=(e.target.textContent||'').trim().replace(/\s+/g,' ').slice(0,70),ct=anchorTitle(cont);
+  openPinEditor({id:null,view:curView(),containerId:cont.id,containerLabel:ct,relX,relY,label:ct+(clicked?' — “'+clicked+'”':'')},e.clientX,e.clientY);
+},true);
+document.addEventListener('click',function(){const m=document.getElementById('cmtMenu');if(m)m.remove();const l=document.getElementById('cmtList');if(l)l.remove();closePop();});
 function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElementById('audit-body');
   document.getElementById('audit-title').textContent=(A&&A.title)||'Account audit';
   document.getElementById('audit-eyebrow').textContent=(S.name||'')+' · audit';
@@ -899,14 +964,13 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
       +'<span class="sev '+sev+'">'+lbl+'</span><h3>'+f.title+'</h3></div>'
       +'<div class="abody">'+f.body+'</div>';
     const h=document.createElement('div');h.className='achart';card.appendChild(h);body.appendChild(card);
-    if(f.chart){try{renderAuditChart(h,f.chart,S);}catch(e){h.remove();}}else h.remove();
-    if(IS_OWNER)card.appendChild(cardCmtBlock(ACTIVE+'#a'+i,{slug:ACTIVE,view:'audit',card:(i+1)+'. '+f.title}));});
-  updateFab();}
+    if(f.chart){try{renderAuditChart(h,f.chart,S);}catch(e){h.remove();}}else h.remove();});
+  renderPins();}
 function auditWins(host,wins){
   const arr=wins.slice().sort((a,b)=>(b.dollars||0)-(a.dollars||0));
   const mx=Math.max(...arr.map(w=>w.dollars||0),1);
   const total=arr.reduce((a,w)=>a+(w.dollars||0),0);
-  const wrap=document.createElement('div');wrap.className='wins';
+  const wrap=document.createElement('div');wrap.className='wins';wrap.id='wins-board';
   wrap.innerHTML='<div class="wins-h"><span class="wins-t">Top wins</span>'
     +(total?'<span class="wins-tot">≈ '+kfmt(total)+'/yr identified upside</span>':'')+'</div>'
     +'<div class="wins-sub">Ranked by estimated annual impact. Click any win to jump to the detail below.</div>'
@@ -1294,7 +1358,8 @@ function renderDash(){clearDash();const{cur}=windows();renderTiles();renderRpr()
   renderCamp();
   renderSms();
   renderIpNote();
-  renderBoard();}
+  renderBoard();
+  if(IS_OWNER)renderPins();}
 
 function renderIpNote(){const el=document.getElementById('ipnote');
   if(!IP){el.hidden=true;return;}
