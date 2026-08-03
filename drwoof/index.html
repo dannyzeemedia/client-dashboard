@@ -1167,7 +1167,7 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
     const mxr=Math.max(...spec.ideas.flatMap(mo=>(mo.items||[]).map(x=>x.rev||0)),1);
     const total=spec.ideas.reduce((c,mo)=>c+(mo.items||[]).length,0);
     wI.innerHTML='<button class="ideas-head" type="button"><span>💡 Campaign calendar — next 3 months ('+total+' ideas)</span><span class="ideas-chev">▾</span></button>'
-      +'<div class="ideas-body" hidden><div class="ideas-sub">Four to six suggested sends a month, built from the angles that have worked best in this account. Expected revenue per send is an estimate at the current list size.</div>'
+      +'<div class="ideas-body" hidden><div class="ideas-sub">'+esc(spec.ideasSub||'Four to six suggested sends a month, built from the angles that have worked best in this account. Expected revenue per send is an estimate at the current list size.')+'</div>'
       +spec.ideas.map(mo=>'<div class="idea-month">'+esc(mo.month)+'</div>'
         +(mo.items||[]).slice().sort((a,b)=>(b.rev||0)-(a.rev||0)).map(x=>'<div class="idea-row"><span class="idea-t">'+esc(x.title)+'</span>'
           +'<span class="idea-bar"><i style="width:'+Math.max(6,(x.rev||0)/mxr*100)+'%"></i></span>'
