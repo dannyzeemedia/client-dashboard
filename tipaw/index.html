@@ -823,18 +823,61 @@ function renderAuditChart(host,spec,S){
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
   if(spec.type==='cta')return auditCta(host,spec);
-  if(spec.type==='campaigns')return auditCampaigns(host,S);
+  if(spec.type==='campaigns')return auditCampaigns(host,S,spec);
   if(spec.type==='testing')return auditTesting(host,spec);
   if(spec.type==='reentry')return auditReentry(host,S);
   if(spec.type==='bars'){
     if(spec.source==='concentration'&&(S.flow_summary||[]).length)return auditConcentration(host,S,spec);
     if(spec.source==='volume'&&(S.flow_summary||[]).length)return auditVolume(host,S,spec);
     return auditBars(host,spec,S);}}
-function auditCampaigns(host,S){const cur=(S.current&&S.current.mtd)?S.current:null;
+function auditArea(host,months,vals,fmt,label,ipIdx){
+  const W=1080,H=260,PL=64,PR=18,PT=16,PB=36,iw=W-PL-PR,ih=H-PT-PB,n=months.length;
+  const mx=niceMax(Math.max(...vals,0.0001));
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  const x=i=>PL+(n<=1?iw/2:iw*i/(n-1)),y=v=>PT+ih-(v/mx)*ih,ev=lblEvery(n);
+  for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(mx*g/4),y2:y(mx*g/4)}));
+    const t=el('text',{class:'ax',x:PL-8,y:y(mx*g/4)+4,'text-anchor':'end'});t.textContent=fmt(mx*g/4);svg.appendChild(t);}
+  let area='M'+x(0)+' '+y(0);vals.forEach((v,i)=>area+='L'+x(i)+' '+y(v));area+='L'+x(n-1)+' '+y(0)+'Z';
+  svg.appendChild(el('path',{d:area,fill:'var(--flow)','fill-opacity':0.16,stroke:'none'}));
+  let d='';vals.forEach((v,i)=>d+=(i?'L':'M')+x(i)+' '+y(v));
+  svg.appendChild(el('path',{d,fill:'none',stroke:'var(--flow)','stroke-width':2.5,'stroke-linejoin':'round'}));
+  vals.forEach((v,i)=>svg.appendChild(el('circle',{cx:x(i),cy:y(v),r:i===ipIdx?4.5:3,fill:i===ipIdx?'var(--surface)':'var(--flow)',stroke:i===ipIdx?'var(--flow)':'none','stroke-width':i===ipIdx?2:0})));
+  months.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-12,'text-anchor':'middle'});t.textContent=mlabel(mm)+(i===ipIdx?'*':'');svg.appendChild(t);}});
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+  const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
+  const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
+  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
+    const i=Math.max(0,Math.min(n-1,Math.round((px-PL)/iw*(n-1))));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
+    showTip(host,e,mlabel(months[i]),[[label,vals[i],'var(--flow)']],fmt);});
+  hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);
+  host.appendChild(alegend([label,'var(--flow)']));host.appendChild(svg);}
+var campView='monthly';
+function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.current.mtd)?S.current:null;
   const m=S.months.slice(-12).concat(cur?[cur.month]:[]);
   const sends=S.csends.slice(-12).concat(cur?[cur.mtd.csends]:[]);
   const rev=S.camp.slice(-12).concat(cur?[cur.mtd.camp]:[]);
-  auditDual(host,m,sends,rev,v=>Math.round(v),kfmt,'Campaigns sent / mo','Campaign revenue',null,null,cur?m.length-1:-1);}
+  const recip=S.crecip.slice(-12).concat(cur?[cur.mtd.crecip]:[]);
+  const ip=cur?m.length-1:-1;
+  const main=document.createElement('div');host.appendChild(main);
+  function drawMain(){main.innerHTML='';
+    if(spec.cumulative){const seg=document.createElement('div');seg.className='chartseg';
+      [['monthly','Monthly'],['cum','Cumulative']].forEach(([v,lab])=>{const b=document.createElement('button');
+        b.className='csg'+(campView===v?' on':'');b.textContent=lab;
+        b.addEventListener('click',e=>{e.stopPropagation();campView=v;drawMain();});seg.appendChild(b);});
+      main.appendChild(seg);}
+    if(spec.cumulative&&campView==='cum'){
+      let run=0;const cum=rev.map(v=>run+=v);
+      auditArea(main,m,cum,kfmt,'Cumulative campaign revenue',ip);
+      const note=document.createElement('div');note.className='conc-note';
+      note.textContent='Cumulative campaign revenue. A straight climb would mean each month adds as much as the last; the curve flattening shows each month is adding less than the one before.';
+      main.appendChild(note);
+    }else{
+      auditDual(main,m,sends,rev,v=>Math.round(v),kfmt,'Campaigns sent / mo','Campaign revenue',null,null,ip);}}
+  drawMain();
+  if(spec.recipVsRev){const h2=document.createElement('div');h2.style.marginTop='22px';host.appendChild(h2);
+    const cap=document.createElement('div');cap.style.cssText='font-size:12.5px;color:var(--ink2);font-weight:600;margin-bottom:6px';
+    cap.textContent='Recipients reached vs revenue earned, by month';h2.appendChild(cap);
+    auditDual(h2,m,recip,rev,nfmt,kfmt,'Recipients / mo','Campaign revenue',null,null,ip);}}
 function auditCta(host,spec){
   const wrap=document.createElement('div');wrap.className='cta';
   var btns='<a class="cta-btn" href="'+(spec.url||'https://zee.media/#pricing')+'" target="_blank" rel="noopener">'+(spec.label||'Check out our prices')+' →</a>';
