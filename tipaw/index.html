@@ -179,8 +179,9 @@
   .ideas-chev{color:var(--muted)}
   .ideas-body{padding:12px 14px}
   .ideas-sub{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5}
-  .idea-row{display:grid;grid-template-columns:1.4fr 1fr auto;gap:12px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13px}
-  .idea-row:first-of-type{border-top:none}
+  .idea-month{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--flow);margin:14px 0 4px;padding-top:10px;border-top:1px solid var(--border)}
+  .idea-month:first-child{border-top:none;padding-top:0;margin-top:2px}
+  .idea-row{display:grid;grid-template-columns:1.5fr 1fr auto;gap:12px;align-items:center;padding:5px 0;font-size:13px}
   .idea-t{color:var(--ink)}
   .idea-bar{height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden}
   .idea-bar>i{display:block;height:100%;background:var(--flow);border-radius:4px}
@@ -1159,12 +1160,14 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
     cap.textContent='Recipients reached vs revenue earned, by month';h2.appendChild(cap);
     auditDual(h2,m,recip,rev,nfmt,kfmt,'Recipients / mo','Campaign revenue',null,null,ip);}
   if(spec.ideas&&spec.ideas.length){const wI=document.createElement('div');wI.className='ideas';host.appendChild(wI);
-    const mxr=Math.max(...spec.ideas.map(x=>x.rev||0),1);
-    wI.innerHTML='<button class="ideas-head" type="button"><span>💡 Campaign ideas to explore ('+spec.ideas.length+')</span><span class="ideas-chev">▾</span></button>'
-      +'<div class="ideas-body" hidden><div class="ideas-sub">Grounded in the campaigns that have worked best in this account. Expected revenue per send is an estimate at the current list size, a menu to pick the strongest four to five each month from.</div>'
-      +spec.ideas.slice().sort((a,b)=>(b.rev||0)-(a.rev||0)).map(x=>'<div class="idea-row"><span class="idea-t">'+esc(x.title)+'</span>'
-        +'<span class="idea-bar"><i style="width:'+Math.max(6,(x.rev||0)/mxr*100)+'%"></i></span>'
-        +'<span class="idea-rev">'+kfmt(x.rev||0)+'/send</span></div>').join('')+'</div>';
+    const mxr=Math.max(...spec.ideas.flatMap(mo=>(mo.items||[]).map(x=>x.rev||0)),1);
+    const total=spec.ideas.reduce((c,mo)=>c+(mo.items||[]).length,0);
+    wI.innerHTML='<button class="ideas-head" type="button"><span>💡 Campaign calendar — next 3 months ('+total+' ideas)</span><span class="ideas-chev">▾</span></button>'
+      +'<div class="ideas-body" hidden><div class="ideas-sub">Four to six suggested sends a month, built from the angles that have worked best in this account. Expected revenue per send is an estimate at the current list size.</div>'
+      +spec.ideas.map(mo=>'<div class="idea-month">'+esc(mo.month)+'</div>'
+        +(mo.items||[]).slice().sort((a,b)=>(b.rev||0)-(a.rev||0)).map(x=>'<div class="idea-row"><span class="idea-t">'+esc(x.title)+'</span>'
+          +'<span class="idea-bar"><i style="width:'+Math.max(6,(x.rev||0)/mxr*100)+'%"></i></span>'
+          +'<span class="idea-rev">'+kfmt(x.rev||0)+'/send</span></div>').join('')).join('')+'</div>';
     const hd=wI.querySelector('.ideas-head'),bd=wI.querySelector('.ideas-body');
     hd.addEventListener('click',e=>{e.stopPropagation();const open=bd.hidden;bd.hidden=!open;wI.querySelector('.ideas-chev').textContent=open?'▴':'▾';});}}
 function auditCta(host,spec){
