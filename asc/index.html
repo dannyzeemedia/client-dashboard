@@ -242,6 +242,28 @@
   .cmt-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--crit);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
   .cmt-fabpanel{position:fixed;right:20px;bottom:82px;z-index:1500;width:min(360px,92vw);max-height:70vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.3);padding:14px;display:flex;flex-direction:column;gap:8px}
   .cmt-fabhead{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .wins{border:1px solid color-mix(in srgb,var(--flow) 28%,var(--border));border-radius:14px;background:color-mix(in srgb,var(--flow) 5%,var(--surface));padding:16px 18px;margin-bottom:24px}
+  .wins-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .wins-t{font-size:16px;font-weight:800;letter-spacing:.02em;color:var(--ink)}
+  .wins-tot{font-size:14px;font-weight:800;color:var(--flow)}
+  .wins-sub{font-size:12px;color:var(--muted);margin:2px 0 12px}
+  .win{display:grid;grid-template-columns:24px 1fr auto;gap:11px;align-items:center;padding:8px 6px;border-radius:8px;text-decoration:none;color:inherit;border-top:1px solid var(--border)}
+  .win:first-of-type{border-top:none}
+  a.win:hover{background:var(--surface-2)}
+  .win-rank{width:24px;height:24px;border-radius:50%;background:var(--flow);color:var(--surface);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .win-main{min-width:0;display:flex;flex-direction:column;gap:5px}
+  .win-title{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.3}
+  .win-bar{height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+  .win-bar>i{display:block;height:100%;background:var(--flow);border-radius:4px}
+  .win-impact{font-size:13.5px;font-weight:800;color:var(--flow);white-space:nowrap}
+  .fnl{display:flex;flex-direction:column;gap:9px}
+  .fnl-row{display:grid;grid-template-columns:130px 1fr 62px;gap:10px;align-items:center}
+  .fnl-lab{font-size:12.5px;color:var(--ink2);font-weight:600}
+  .fnl-bar{height:24px;border-radius:5px;background:var(--surface-2);overflow:hidden}
+  .fnl-bar>i{display:block;height:100%;background:var(--flow)}
+  .fnl-row.bad .fnl-bar>i{background:var(--crit)}
+  .fnl-val{font-size:13.5px;font-weight:800;color:var(--ink);text-align:right}
+  .fnl-row.bad .fnl-val{color:var(--crit)}
 
   .filters{display:flex;align-items:center;justify-content:center;gap:9px 24px;flex-wrap:wrap;margin:20px 0 4px;
     background:color-mix(in srgb,var(--flow) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--flow) 18%,var(--border));
@@ -870,7 +892,8 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
   const vb=document.getElementById('vidBtn');if(vb){const vu=(A&&A.video_url)||'';vb.dataset.embed=vu;vb.style.display=vu?'':'none';}
   document.getElementById('audit-sub').textContent=(A&&A.sub)||'';
   body.innerHTML=''; if(!A||!A.findings)return;
-  A.findings.forEach((f,i)=>{const card=document.createElement('div');card.className='afind';
+  if(A.wins&&A.wins.length)auditWins(body,A.wins);
+  A.findings.forEach((f,i)=>{const card=document.createElement('div');card.className='afind';card.id='afind-'+i;
     const sev=f.sev||'note',lbl=sev==='crit'?'Critical':sev==='warn'?'Watch':sev==='cta'?'Next step':'Note';
     card.innerHTML='<div class="ahead"><span class="anum">'+String(i+1).padStart(2,'0')+'</span>'
       +'<span class="sev '+sev+'">'+lbl+'</span><h3>'+f.title+'</h3></div>'
@@ -879,7 +902,42 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
     if(f.chart){try{renderAuditChart(h,f.chart,S);}catch(e){h.remove();}}else h.remove();
     if(IS_OWNER)card.appendChild(cardCmtBlock(ACTIVE+'#a'+i,{slug:ACTIVE,view:'audit',card:(i+1)+'. '+f.title}));});
   updateFab();}
+function auditWins(host,wins){
+  const arr=wins.slice().sort((a,b)=>(b.dollars||0)-(a.dollars||0));
+  const mx=Math.max(...arr.map(w=>w.dollars||0),1);
+  const total=arr.reduce((a,w)=>a+(w.dollars||0),0);
+  const wrap=document.createElement('div');wrap.className='wins';
+  wrap.innerHTML='<div class="wins-h"><span class="wins-t">Top wins</span>'
+    +(total?'<span class="wins-tot">≈ '+kfmt(total)+'/yr identified upside</span>':'')+'</div>'
+    +'<div class="wins-sub">Ranked by estimated annual impact. Click any win to jump to the detail below.</div>'
+    +arr.map((w,i)=>{const pct=Math.max(5,(w.dollars||0)/mx*100);const link=(w.card!=null);
+      return '<'+(link?'a':'div')+' class="win"'+(link?' href="#afind-'+w.card+'"':'')+'>'
+        +'<span class="win-rank">'+(i+1)+'</span>'
+        +'<span class="win-main"><span class="win-title">'+esc(w.title)+'</span>'
+          +'<span class="win-bar"><i style="width:'+pct+'%"></i></span></span>'
+        +'<span class="win-impact">'+esc(w.impact||'')+'</span>'
+        +'</'+(link?'a':'div')+'>';}).join('');
+  host.appendChild(wrap);}
+function auditFunnel(host,spec){const st=spec.stages||[];
+  const wrap=document.createElement('div');wrap.className='fnl';
+  wrap.innerHTML=st.map(s=>'<div class="fnl-row'+(s.flag?' bad':'')+'">'
+    +'<span class="fnl-lab">'+esc(s.label)+'</span>'
+    +'<span class="fnl-bar"><i style="width:'+Math.max(1.5,s.pct)+'%"></i></span>'
+    +'<span class="fnl-val">'+s.pct+'%</span></div>').join('');
+  host.appendChild(wrap);
+  if(spec.leak){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.leak;host.appendChild(n);}}
+function auditCompare(host,spec){const items=spec.items||[],mx=Math.max(...items.map(i=>Math.abs(i.value)||0),1);
+  const fmt=spec.money?kfmt:(v=>nfmt(v));
+  const wrap=document.createElement('div');wrap.className='abars';
+  wrap.innerHTML=items.map(it=>{const pct=Math.max(it.value>0?4:0,Math.abs(it.value)/mx*100),c=it.flag?'var(--crit)':'var(--flow)';
+    return '<div class="abar'+(it.flag?' flag':'')+'"><span class="abl" title="'+esc(it.label)+'">'+esc(it.label)+'</span>'
+      +'<span class="abt" style="width:'+pct+'%;background:'+c+'"></span>'
+      +'<span class="abv">'+fmt(it.value)+'</span></div>';}).join('');
+  host.appendChild(wrap);
+  if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
 function renderAuditChart(host,spec,S){
+  if(spec.type==='funnel')return auditFunnel(host,spec);
+  if(spec.type==='compare')return auditCompare(host,spec);
   if(spec.type==='growth')return auditGrowth(host,S,spec);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
