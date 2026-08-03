@@ -1110,25 +1110,26 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
   const recip=S.crecip.slice(-12).concat(cur?[cur.mtd.crecip]:[]);
   const ip=cur?m.length-1:-1;
   const main=document.createElement('div');host.appendChild(main);
+  const showOverlay=!spec.recipVsRev;   // stock campaigns charts get the recipients overlay; a recipVsRev chart already shows recipients
   function drawMain(){main.innerHTML='';
     const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
-    if(spec.cumulative){const seg=document.createElement('div');seg.className='chartseg';seg.style.margin='0';
-      [['monthly','Monthly'],['cum','Cumulative']].forEach(([v,lab])=>{const b=document.createElement('button');
-        b.className='csg'+(campView===v?' on':'');b.textContent=lab;
-        b.addEventListener('click',e=>{e.stopPropagation();campView=v;drawMain();});seg.appendChild(b);});
-      ctrl.appendChild(seg);}
-    if(spec.recipToggle){const b=document.createElement('button');b.className='miniToggle';b.style.cssText='position:static;margin:0';
+    const seg=document.createElement('div');seg.className='chartseg';seg.style.margin='0';
+    [['monthly','Monthly'],['cum','Cumulative']].forEach(([v,lab])=>{const b=document.createElement('button');
+      b.className='csg'+(campView===v?' on':'');b.textContent=lab;
+      b.addEventListener('click',e=>{e.stopPropagation();campView=v;drawMain();});seg.appendChild(b);});
+    ctrl.appendChild(seg);
+    if(showOverlay){const b=document.createElement('button');b.className='miniToggle';b.style.cssText='position:static;margin:0';
       b.setAttribute('aria-pressed',campRecipBg);b.innerHTML='<span class="dot"></span>Recipients overlay';
       b.addEventListener('click',e=>{e.stopPropagation();campRecipBg=!campRecipBg;drawMain();});ctrl.appendChild(b);}
-    if(ctrl.children.length)main.appendChild(ctrl);
-    if(spec.cumulative&&campView==='cum'){
+    main.appendChild(ctrl);
+    if(campView==='cum'){
       let run=0;const cum=rev.map(v=>run+=v);
       auditArea(main,m,cum,kfmt,'Cumulative campaign revenue',ip);
       const note=document.createElement('div');note.className='conc-note';
       note.textContent='Cumulative campaign revenue. A straight climb would mean each month adds as much as the last; the curve flattening shows each month is adding less than the one before.';
       main.appendChild(note);
     }else{
-      const bg=(spec.recipToggle&&campRecipBg)?{data:recip,label:'Recipients / mo (overlay)',color:'var(--ink2)'}:null;
+      const bg=(showOverlay&&campRecipBg)?{data:recip,label:'Recipients / mo (overlay)',color:'var(--ink2)'}:null;
       auditDual(main,m,sends,rev,v=>Math.round(v),kfmt,'Campaigns sent / mo','Campaign revenue',null,null,ip,bg);}}
   drawMain();
   if(spec.recipVsRev){const h2=document.createElement('div');h2.style.marginTop='22px';host.appendChild(h2);
