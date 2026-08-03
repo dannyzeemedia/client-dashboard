@@ -1110,7 +1110,7 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
   const recip=S.crecip.slice(-12).concat(cur?[cur.mtd.crecip]:[]);
   const ip=cur?m.length-1:-1;
   const main=document.createElement('div');host.appendChild(main);
-  const showOverlay=!spec.recipVsRev;   // stock campaigns charts get the recipients overlay; a recipVsRev chart already shows recipients
+  const showOverlay=!spec.recipVsRev||spec.recipOverlay;   // stock charts get the overlay; recipVsRev suppresses it unless recipOverlay forces it on
   function drawMain(){main.innerHTML='';
     const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
     const seg=document.createElement('div');seg.className='chartseg';seg.style.margin='0';
