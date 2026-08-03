@@ -1129,6 +1129,44 @@ function auditArea(host,months,vals,fmt,label,ipIdx){
     showTip(host,e,mlabel(months[i]),[[label,vals[i],'var(--flow)']],fmt);});
   hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);
   host.appendChild(alegend([label,'var(--flow)']));host.appendChild(svg);}
+var mixShowRev=false;
+function auditMixed(host,S){
+  const m=S.months.slice(-12),sends=S.csends.slice(-12),subs=S.subs.slice(-12),rev=S.camp.slice(-12);
+  const box=document.createElement('div');host.appendChild(box);
+  function draw(){box.innerHTML='';
+    const tog=document.createElement('button');tog.className='miniToggle';tog.style.cssText='position:static;margin:0 0 8px';
+    tog.setAttribute('aria-pressed',mixShowRev);tog.innerHTML='<span class="dot"></span>Show revenue';
+    tog.addEventListener('click',e=>{e.stopPropagation();mixShowRev=!mixShowRev;draw();});box.appendChild(tog);
+    const W=1080,H=300,PL=52,PR=62,PT=16,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=m.length,step=iw/n,bw=step*0.5;
+    const cmax=niceMax(Math.max(...sends,...subs,1)),rmax=niceMax(Math.max(...rev,1));
+    const yc=v=>PT+ih-(v/cmax)*ih,yr=v=>PT+ih-(v/rmax)*ih,cx=i=>PL+step*i+step/2,ev=lblEvery(n);
+    const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+    for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:yc(cmax*g/4),y2:yc(cmax*g/4)}));
+      const t=el('text',{class:'ax',x:PL-8,y:yc(cmax*g/4)+4,'text-anchor':'end'});t.textContent=Math.round(cmax*g/4);svg.appendChild(t);
+      if(mixShowRev){const tr=el('text',{class:'ax',style:'fill:var(--flow)',x:W-PR+8,y:yr(rmax*g/4)+4,'text-anchor':'start'});tr.textContent=kfmt(rmax*g/4);svg.appendChild(tr);}}
+    if(mixShowRev){let a='M'+cx(0)+' '+(PT+ih);rev.forEach((v,i)=>a+='L'+cx(i)+' '+yr(v));a+='L'+cx(n-1)+' '+(PT+ih)+'Z';
+      svg.appendChild(el('path',{d:a,fill:'var(--flow)','fill-opacity':0.14,stroke:'none'}));
+      let rl='';rev.forEach((v,i)=>rl+=(i?'L':'M')+cx(i)+' '+yr(v));svg.appendChild(el('path',{d:rl,fill:'none',stroke:'var(--flow)','stroke-width':1.8,'stroke-dasharray':'4 3'}));}
+    sends.forEach((v,i)=>{const x=PL+step*i+(step-bw)/2,h=v/cmax*ih;svg.appendChild(el('rect',{x,y:PT+ih-h,width:bw,height:Math.max(h,0),rx:3,fill:'var(--aqua)','fill-opacity':.8}));});
+    let sl='';subs.forEach((v,i)=>sl+=(i?'L':'M')+cx(i)+' '+yc(v));svg.appendChild(el('path',{d:sl,fill:'none',stroke:'var(--camp)','stroke-width':2.5,'stroke-linejoin':'round'}));
+    subs.forEach((v,i)=>svg.appendChild(el('circle',{cx:cx(i),cy:yc(v),r:3,fill:'var(--camp)'})));
+    m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:cx(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(mm);svg.appendChild(t);}});
+    svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+    const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
+    const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
+    hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
+      const i=Math.max(0,Math.min(n-1,Math.floor((px-PL)/step)));cross.setAttribute('x1',cx(i));cross.setAttribute('x2',cx(i));cross.setAttribute('opacity',1);
+      const rows=[['Campaign sends',sends[i],'var(--aqua)',v=>Math.round(v)],['New subscribers',subs[i],'var(--camp)',v=>Math.round(v)]];
+      if(mixShowRev)rows.push(['Campaign revenue',rev[i],'var(--flow)',kfmt]);
+      showTip(box,e,mlabel(m[i]),rows,v=>Math.round(v));});
+    hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(box);});svg.appendChild(hit);
+    box.appendChild(mixShowRev?alegend(['Campaign sends','var(--aqua)'],['New subscribers (list)','var(--camp)'],['Campaign revenue','var(--flow)'])
+                              :alegend(['Campaign sends','var(--aqua)'],['New subscribers (list)','var(--camp)']));
+    box.appendChild(svg);
+    const note=document.createElement('div');note.className='conc-note';
+    note.textContent='Bars are campaigns sent each month; the line is new subscribers (the list) falling away. Toggle revenue on to overlay it. Sends hold steady while the list, and the revenue it earns, declines.';
+    box.appendChild(note);}
+  draw();}
 var campView='monthly', campRecipBg=false;
 function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.current.mtd)?S.current:null;
   const m=S.months.slice(-12).concat(cur?[cur.month]:[]);
@@ -1136,7 +1174,7 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
   const rev=S.camp.slice(-12).concat(cur?[cur.mtd.camp]:[]);
   const recip=S.crecip.slice(-12).concat(cur?[cur.mtd.crecip]:[]);
   const ip=cur?m.length-1:-1;
-  const main=document.createElement('div');host.appendChild(main);
+  const main=document.createElement('div');if(!spec.mixed)host.appendChild(main);
   const showOverlay=!spec.recipVsRev||spec.recipOverlay;   // stock charts get the overlay; recipVsRev suppresses it unless recipOverlay forces it on
   function drawMain(){main.innerHTML='';
     const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
@@ -1158,8 +1196,8 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
     }else{
       const bg=(showOverlay&&campRecipBg)?{data:recip,label:'Recipients / mo (overlay)',color:'var(--flow)'}:null;
       auditDual(main,m,sends,rev,v=>Math.round(v),kfmt,'Campaigns sent / mo','Campaign revenue',null,null,ip,bg);}}
-  if(!spec.ideasOnly)drawMain();
-  if(!spec.ideasOnly&&spec.recipVsRev){const h2=document.createElement('div');h2.style.marginTop='22px';host.appendChild(h2);
+  if(spec.mixed)auditMixed(host,S); else if(!spec.ideasOnly)drawMain();
+  if(!spec.mixed&&!spec.ideasOnly&&spec.recipVsRev){const h2=document.createElement('div');h2.style.marginTop='22px';host.appendChild(h2);
     const cap=document.createElement('div');cap.style.cssText='font-size:12.5px;color:var(--ink2);font-weight:600;margin-bottom:6px';
     cap.textContent='Recipients reached vs revenue earned, by month';h2.appendChild(cap);
     auditDual(h2,m,recip,rev,nfmt,kfmt,'Recipients / mo','Campaign revenue',null,null,ip);}
