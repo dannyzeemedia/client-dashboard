@@ -1154,8 +1154,8 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
     }else{
       const bg=(showOverlay&&campRecipBg)?{data:recip,label:'Recipients / mo (overlay)',color:'var(--flow)'}:null;
       auditDual(main,m,sends,rev,v=>Math.round(v),kfmt,'Campaigns sent / mo','Campaign revenue',null,null,ip,bg);}}
-  drawMain();
-  if(spec.recipVsRev){const h2=document.createElement('div');h2.style.marginTop='22px';host.appendChild(h2);
+  if(!spec.ideasOnly)drawMain();
+  if(!spec.ideasOnly&&spec.recipVsRev){const h2=document.createElement('div');h2.style.marginTop='22px';host.appendChild(h2);
     const cap=document.createElement('div');cap.style.cssText='font-size:12.5px;color:var(--ink2);font-weight:600;margin-bottom:6px';
     cap.textContent='Recipients reached vs revenue earned, by month';h2.appendChild(cap);
     auditDual(h2,m,recip,rev,nfmt,kfmt,'Recipients / mo','Campaign revenue',null,null,ip);}
