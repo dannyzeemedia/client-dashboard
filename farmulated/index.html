@@ -183,6 +183,10 @@
   .idea-month:first-child{border-top:none;padding-top:0;margin-top:2px}
   .idea-row{display:grid;grid-template-columns:1.5fr 1fr auto;gap:12px;align-items:center;padding:5px 0;font-size:13px}
   .idea-t{color:var(--ink)}
+  .art-row{display:grid;grid-template-columns:118px 1fr;gap:12px;align-items:baseline;padding:7px 0;border-top:1px solid var(--border);font-size:13px}
+  .art-row:first-of-type{border-top:none}
+  .art-reason{font-size:10.5px;font-weight:800;color:var(--flow);text-transform:uppercase;letter-spacing:.03em}
+  .art-title{color:var(--ink);line-height:1.4}
   .idea-bar{height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden}
   .idea-bar>i{display:block;height:100%;background:var(--flow);border-radius:4px}
   .idea-rev{font-size:12.5px;font-weight:800;color:var(--flow);white-space:nowrap}
@@ -1169,7 +1173,13 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
           +'<span class="idea-bar"><i style="width:'+Math.max(6,(x.rev||0)/mxr*100)+'%"></i></span>'
           +'<span class="idea-rev">'+kfmt(x.rev||0)+'/send</span></div>').join('')).join('')+'</div>';
     const hd=wI.querySelector('.ideas-head'),bd=wI.querySelector('.ideas-body');
-    hd.addEventListener('click',e=>{e.stopPropagation();const open=bd.hidden;bd.hidden=!open;wI.querySelector('.ideas-chev').textContent=open?'▴':'▾';});}}
+    hd.addEventListener('click',e=>{e.stopPropagation();const open=bd.hidden;bd.hidden=!open;wI.querySelector('.ideas-chev').textContent=open?'▴':'▾';});}
+  if(spec.articles&&spec.articles.length){const wA=document.createElement('div');wA.className='ideas';host.appendChild(wA);
+    wA.innerHTML='<button class="ideas-head" type="button"><span>📝 Blog-article ideas — the top reasons people seek CBD ('+spec.articles.length+')</span><span class="ideas-chev">▾</span></button>'
+      +'<div class="ideas-body" hidden><div class="ideas-sub">Problem-aware and adjacent articles built around why people actually search for CBD. Each lives on-site (earning organic traffic over time) and converts through a sticky add-to-cart at the foot of the page.</div>'
+      +spec.articles.map(x=>'<div class="art-row"><span class="art-reason">'+esc(x.reason)+'</span><span class="art-title">'+esc(x.title)+'</span></div>').join('')+'</div>';
+    const h2=wA.querySelector('.ideas-head'),b2=wA.querySelector('.ideas-body');
+    h2.addEventListener('click',e=>{e.stopPropagation();const o=b2.hidden;b2.hidden=!o;wA.querySelector('.ideas-chev').textContent=o?'▴':'▾';});}}
 function auditCta(host,spec){
   const wrap=document.createElement('div');wrap.className='cta';
   var btns='<a class="cta-btn" href="'+(spec.url||'https://zee.media/#pricing')+'" target="_blank" rel="noopener">'+(spec.label||'Check out our prices')+' →</a>';
