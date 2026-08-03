@@ -269,9 +269,17 @@
   .wins-t{font-size:16px;font-weight:800;letter-spacing:.02em;color:var(--ink)}
   .wins-tot{font-size:14px;font-weight:800;color:var(--flow)}
   .wins-sub{font-size:12px;color:var(--muted);margin:2px 0 12px}
-  .win{display:grid;grid-template-columns:24px 1fr auto;gap:11px;align-items:center;padding:8px 6px;border-radius:8px;text-decoration:none;color:inherit;border-top:1px solid var(--border)}
+  .win{border-top:1px solid var(--border)}
   .win:first-of-type{border-top:none}
-  a.win:hover{background:var(--surface-2)}
+  .win-head{display:grid;grid-template-columns:24px 1fr auto 14px;gap:11px;align-items:center;width:100%;padding:9px 6px;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer;border-radius:8px}
+  .win-head:hover{background:var(--surface-2)}
+  .win-chev{color:var(--muted);font-size:11px}
+  .win-detail{padding:0 6px 12px 41px}
+  .win-detail p{margin:0 0 8px;font-size:12.5px;color:var(--ink2);line-height:1.5}
+  .win-link{font-size:12.5px;font-weight:700;color:var(--flow);text-decoration:none}
+  .win-link:hover{text-decoration:underline}
+  .afind.flash{animation:flashcard 1.3s ease}
+  @keyframes flashcard{0%,100%{box-shadow:none}25%{box-shadow:0 0 0 3px color-mix(in srgb,var(--flow) 45%,transparent)}}
   .win-rank{width:24px;height:24px;border-radius:50%;background:var(--flow);color:var(--surface);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
   .win-main{min-width:0;display:flex;flex-direction:column;gap:5px}
   .win-title{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.3}
@@ -990,15 +998,57 @@ function auditWins(host,wins){
   const wrap=document.createElement('div');wrap.className='wins';wrap.id='wins-board';
   wrap.innerHTML='<div class="wins-h"><span class="wins-t">Top wins</span>'
     +(total?'<span class="wins-tot">≈ '+kfmt(total)+'/yr identified upside</span>':'')+'</div>'
-    +'<div class="wins-sub">Ranked by estimated annual impact. Click any win to jump to the detail below.</div>'
-    +arr.map((w,i)=>{const pct=Math.max(5,(w.dollars||0)/mx*100);const link=(w.card!=null);
-      return '<'+(link?'a':'div')+' class="win"'+(link?' href="#afind-'+w.card+'"':'')+'>'
-        +'<span class="win-rank">'+(i+1)+'</span>'
-        +'<span class="win-main"><span class="win-title">'+esc(w.title)+'</span>'
-          +'<span class="win-bar"><i style="width:'+pct+'%"></i></span></span>'
-        +'<span class="win-impact">'+esc(w.impact||'')+'</span>'
-        +'</'+(link?'a':'div')+'>';}).join('');
-  host.appendChild(wrap);}
+    +'<div class="wins-sub">Ranked by estimated annual impact. Tap a win to expand.</div>'
+    +arr.map((w,i)=>{const pct=Math.max(5,(w.dollars||0)/mx*100);
+      return '<div class="win">'
+        +'<button class="win-head" type="button">'
+          +'<span class="win-rank">'+(i+1)+'</span>'
+          +'<span class="win-main"><span class="win-title">'+esc(w.title)+'</span>'
+            +'<span class="win-bar"><i style="width:'+pct+'%"></i></span></span>'
+          +'<span class="win-impact">'+esc(w.impact||'')+'</span><span class="win-chev">▾</span></button>'
+        +'<div class="win-detail" hidden>'+(w.detail?'<p>'+esc(w.detail)+'</p>':'')
+          +(w.card!=null?'<a class="win-link" href="#afind-'+w.card+'">See the detail below →</a>':'')+'</div>'
+      +'</div>';}).join('');
+  host.appendChild(wrap);
+  wrap.querySelectorAll('.win-head').forEach(h=>h.addEventListener('click',e=>{e.preventDefault();
+    const w=h.parentElement,d=w.querySelector('.win-detail'),open=w.classList.toggle('open');d.hidden=!open;
+    h.querySelector('.win-chev').textContent=open?'▴':'▾';}));
+  wrap.querySelectorAll('.win-link').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();
+    const t=document.getElementById(a.getAttribute('href').slice(1));
+    if(t){t.scrollIntoView({behavior:'smooth',block:'center'});t.classList.add('flash');setTimeout(()=>t.classList.remove('flash'),1400);}}));}
+function auditStoreShare(host,S){const cur=(S.current&&S.current.mtd)?S.current:null;
+  const m=S.months.slice(-12).concat(cur?[cur.month]:[]);
+  const store=(S.store||[]).slice(-12).concat(cur?[cur.mtd.store||0]:[]);
+  const flow=S.flow.slice(-12).concat(cur?[cur.mtd.flow]:[]);
+  const camp=S.camp.slice(-12).concat(cur?[cur.mtd.camp]:[]);
+  let run=0;const cum=store.map(v=>run+=v);
+  const share=store.map((s,i)=>s?+(((flow[i]+camp[i])/s)*100).toFixed(1):0);
+  const W=1080,H=300,PL=64,PR=56,PT=16,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=m.length;
+  const smax=niceMax(Math.max(...cum,1)),pmax=niceMax(Math.max(...share,10));
+  const x=i=>PL+(n<=1?iw/2:iw*i/(n-1)),ys=v=>PT+ih-(v/smax)*ih,yp=v=>PT+ih-(v/pmax)*ih,ev=lblEvery(n);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:ys(smax*g/4),y2:ys(smax*g/4)}));
+    const tl=el('text',{class:'ax',x:PL-8,y:ys(smax*g/4)+4,'text-anchor':'end'});tl.textContent=kfmt(smax*g/4);svg.appendChild(tl);
+    const tr=el('text',{class:'ax',style:'fill:var(--camp)',x:W-PR+8,y:yp(pmax*g/4)+4,'text-anchor':'start'});tr.textContent=Math.round(pmax*g/4)+'%';svg.appendChild(tr);}
+  let a='M'+x(0)+' '+(PT+ih);cum.forEach((v,i)=>a+='L'+x(i)+' '+ys(v));a+='L'+x(n-1)+' '+(PT+ih)+'Z';
+  svg.appendChild(el('path',{d:a,fill:'var(--aqua)','fill-opacity':0.16,stroke:'none'}));
+  let ls='';cum.forEach((v,i)=>ls+=(i?'L':'M')+x(i)+' '+ys(v));
+  svg.appendChild(el('path',{d:ls,fill:'none',stroke:'var(--aqua)','stroke-width':2,'stroke-linejoin':'round'}));
+  let lp='';share.forEach((v,i)=>lp+=(i?'L':'M')+x(i)+' '+yp(v));
+  svg.appendChild(el('path',{d:lp,fill:'none',stroke:'var(--camp)','stroke-width':2.5,'stroke-linejoin':'round'}));
+  share.forEach((v,i)=>svg.appendChild(el('circle',{cx:x(i),cy:yp(v),r:3,fill:'var(--camp)'})));
+  m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(mm)+(cur&&i===n-1?'*':'');svg.appendChild(t);}});
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+  const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
+  const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
+  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
+    const i=Math.max(0,Math.min(n-1,Math.round((px-PL)/iw*(n-1))));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
+    showTip(host,e,mlabel(m[i]),[['Cumulative store revenue',cum[i],'var(--aqua)',kfmt],['Store revenue (month)',store[i],'var(--ink2)',kfmt],['Email share of store',share[i],'var(--camp)',v=>v.toFixed(1)+'%']],kfmt);});
+  hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);
+  host.appendChild(alegend(['Cumulative store revenue','var(--aqua)'],['Email % of store','var(--camp)']));host.appendChild(svg);
+  const note=document.createElement('div');note.className='conc-note';
+  note.textContent='The area is total store revenue building up across the year; the line is email and SMS as a share of it, sitting near 14%. A big, growing store, and only a thin slice captured by email.';
+  host.appendChild(note);}
 function auditFunnel(host,spec){const st=spec.stages||[];
   const wrap=document.createElement('div');wrap.className='fnl';
   wrap.innerHTML=st.map(s=>'<div class="fnl-row'+(s.flag?' bad':'')+'">'
@@ -1019,6 +1069,7 @@ function auditCompare(host,spec){const items=spec.items||[],mx=Math.max(...items
 function renderAuditChart(host,spec,S){
   if(spec.type==='funnel')return auditFunnel(host,spec);
   if(spec.type==='compare')return auditCompare(host,spec);
+  if(spec.type==='storeshare')return auditStoreShare(host,S);
   if(spec.type==='growth')return auditGrowth(host,S,spec);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
@@ -1051,7 +1102,7 @@ function auditArea(host,months,vals,fmt,label,ipIdx){
     showTip(host,e,mlabel(months[i]),[[label,vals[i],'var(--flow)']],fmt);});
   hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);
   host.appendChild(alegend([label,'var(--flow)']));host.appendChild(svg);}
-var campView='monthly';
+var campView='monthly', campRecipBg=false;
 function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.current.mtd)?S.current:null;
   const m=S.months.slice(-12).concat(cur?[cur.month]:[]);
   const sends=S.csends.slice(-12).concat(cur?[cur.mtd.csends]:[]);
@@ -1060,11 +1111,16 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
   const ip=cur?m.length-1:-1;
   const main=document.createElement('div');host.appendChild(main);
   function drawMain(){main.innerHTML='';
-    if(spec.cumulative){const seg=document.createElement('div');seg.className='chartseg';
+    const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
+    if(spec.cumulative){const seg=document.createElement('div');seg.className='chartseg';seg.style.margin='0';
       [['monthly','Monthly'],['cum','Cumulative']].forEach(([v,lab])=>{const b=document.createElement('button');
         b.className='csg'+(campView===v?' on':'');b.textContent=lab;
         b.addEventListener('click',e=>{e.stopPropagation();campView=v;drawMain();});seg.appendChild(b);});
-      main.appendChild(seg);}
+      ctrl.appendChild(seg);}
+    if(spec.recipToggle){const b=document.createElement('button');b.className='miniToggle';b.style.cssText='position:static;margin:0';
+      b.setAttribute('aria-pressed',campRecipBg);b.innerHTML='<span class="dot"></span>Recipients overlay';
+      b.addEventListener('click',e=>{e.stopPropagation();campRecipBg=!campRecipBg;drawMain();});ctrl.appendChild(b);}
+    if(ctrl.children.length)main.appendChild(ctrl);
     if(spec.cumulative&&campView==='cum'){
       let run=0;const cum=rev.map(v=>run+=v);
       auditArea(main,m,cum,kfmt,'Cumulative campaign revenue',ip);
@@ -1072,7 +1128,8 @@ function auditCampaigns(host,S,spec){spec=spec||{};const cur=(S.current&&S.curre
       note.textContent='Cumulative campaign revenue. A straight climb would mean each month adds as much as the last; the curve flattening shows each month is adding less than the one before.';
       main.appendChild(note);
     }else{
-      auditDual(main,m,sends,rev,v=>Math.round(v),kfmt,'Campaigns sent / mo','Campaign revenue',null,null,ip);}}
+      const bg=(spec.recipToggle&&campRecipBg)?{data:recip,label:'Recipients / mo (overlay)',color:'var(--ink2)'}:null;
+      auditDual(main,m,sends,rev,v=>Math.round(v),kfmt,'Campaigns sent / mo','Campaign revenue',null,null,ip,bg);}}
   drawMain();
   if(spec.recipVsRev){const h2=document.createElement('div');h2.style.marginTop='22px';host.appendChild(h2);
     const cap=document.createElement('div');cap.style.cssText='font-size:12.5px;color:var(--ink2);font-weight:600;margin-bottom:6px';
@@ -1159,7 +1216,7 @@ function auditConcentration(host,S,spec){
   const note=document.createElement('div');note.className='conc-note';
   note.textContent='The tick on each bar marks the same-rank flow at the benchmark (longest-managed client). Your top flow towers over a healthy distribution.';
   host.appendChild(note);}
-function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab,ipIdx){ipIdx=ipIdx==null?-1:ipIdx;
+function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab,ipIdx,bg){ipIdx=ipIdx==null?-1:ipIdx;
   const W=1080,H=300,PL=56,PR=66,PT=16,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=months.length,step=iw/n,bw=step*0.55;
   const bmax=niceMax(Math.max(...bars,0));
   const lall=line.filter(v=>v!=null).concat((line2||[]).filter(v=>v!=null));
@@ -1169,6 +1226,9 @@ function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab,ipIdx){
   for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:yb(bmax*g/4),y2:yb(bmax*g/4)}));
     const tl=el('text',{class:'ax',x:PL-8,y:yb(bmax*g/4)+4,'text-anchor':'end'});tl.textContent=bfmt(bmax*g/4);svg.appendChild(tl);
     const tr=el('text',{class:'ax',style:'fill:var(--camp)',x:W-PR+8,y:yl(lmax*g/4)+4,'text-anchor':'start'});tr.textContent=lfmt(lmax*g/4);svg.appendChild(tr);}
+  if(bg){const bmx=niceMax(Math.max(...bg.data,0.0001)),ybg=v=>PT+ih-(v/bmx)*ih;
+    let dd='M'+cx(0)+' '+(PT+ih);bg.data.forEach((v,i)=>dd+='L'+cx(i)+' '+ybg(v));dd+='L'+cx(n-1)+' '+(PT+ih)+'Z';
+    svg.appendChild(el('path',{d:dd,fill:bg.color,'fill-opacity':0.14,stroke:'none'}));}   // background context area
   if(line2){let d='';months.forEach((m,i)=>{d+=(i===0?'M':'L')+cx(i)+' '+yl(line2[i]);});
     for(let i=months.length-1;i>=0;i--){d+='L'+cx(i)+' '+yl(line[i]);}d+='Z';
     svg.appendChild(el('path',{d,fill:'var(--ink2)','fill-opacity':0.08,stroke:'none'}));}   // gap-to-target band
@@ -1188,11 +1248,13 @@ function auditDual(host,months,bars,line,bfmt,lfmt,blab,llab,line2,l2lab,ipIdx){
     const i=Math.max(0,Math.min(n-1,Math.floor((px-PL)/step)));cross.setAttribute('x1',cx(i));cross.setAttribute('x2',cx(i));cross.setAttribute('opacity',1);
     const rows=[[blab,bars[i],'var(--aqua)',bfmt],[llab,line[i],'var(--camp)',lfmt]];
     if(line2)rows.push([l2lab,line2[i],'var(--ink2)',lfmt]);
+    if(bg)rows.push([bg.label,bg.data[i],bg.color,nfmt]);
     showTip(host,e,mlabel(months[i]),rows,lfmt);});
   hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(host);});svg.appendChild(hit);
-  const leg=line2?alegend([blab,'var(--aqua)'],[llab,'var(--camp)'],[l2lab+' (dashed)','var(--ink2)'])
-                 :alegend([blab,'var(--aqua)'],[llab,'var(--camp)']);
-  host.appendChild(leg);host.appendChild(svg);}
+  const legItems=[[blab,'var(--aqua)'],[llab,'var(--camp)']];
+  if(line2)legItems.push([l2lab+' (dashed)','var(--ink2)']);
+  if(bg)legItems.push([bg.label,bg.color]);
+  host.appendChild(alegend.apply(null,legItems));host.appendChild(svg);}
 function persubIdx(subs,flow){   // flow revenue per new subscriber, 3-mo smoothed, indexed to 100 at window start
   const sm=a=>a.map((_,i)=>{const w=a.slice(Math.max(0,i-2),i+1);return w.reduce((x,y)=>x+y,0)/w.length;});
   const fs=sm(flow),ss=sm(subs),ratio=fs.map((f,i)=>ss[i]?f/ss[i]:null),base=ratio[0];
