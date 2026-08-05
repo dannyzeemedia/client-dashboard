@@ -91,6 +91,8 @@
     display:flex;align-items:center;line-height:0;opacity:.4;transition:opacity .15s,background .15s,border-color .15s}
   .clogo-btn:hover{opacity:.72}
   .clogo-btn[aria-current="true"]{opacity:1;background:var(--surface-2);border-color:var(--border)}
+  .clogo-btn.litebg{background:#fff;border-color:var(--border)}   /* dark mode: light chip behind transparent colour logos */
+  .clogo-btn.litebg[aria-current="true"]{background:#fff}
   .glogo{height:40px;width:auto;max-width:132px;display:block}
   .glogo.inv{filter:brightness(0) invert(1)}
   .gdiv{width:1px;height:28px;background:var(--border);display:inline-block;flex:none}
@@ -619,10 +621,11 @@ function buildSwitcher(){const b=document.getElementById('brand');b.innerHTML=''
   const single=grp.length<2;
   grp.forEach(slug=>{const data=SERIES[slug];
     const active=(slug===ACTIVE);
-    const btn=document.createElement('button');btn.className='clogo-btn'+(active?' full':' icon');btn.dataset.slug=slug;
+    const {src,invert}=logoInfo(data, !active && !single);   // inactive → icon-only mark
+    const litebg=isDark()&&!data.logo_dark&&!invert;   // transparent colour logo on dark → keep a light chip so it stays visible
+    const btn=document.createElement('button');btn.className='clogo-btn'+(active?' full':' icon')+(litebg?' litebg':'');btn.dataset.slug=slug;
     if(active)btn.setAttribute('aria-current','true');
     btn.title=data.name;
-    const {src,invert}=logoInfo(data, !active && !single);   // inactive → icon-only mark
     const img=new Image();img.className='clogo swlogo'+(invert?' inv':'');img.alt=data.name;
     img.onerror=()=>{btn.innerHTML='<span class="swname">'+(active?data.name:(data.name||'?')[0])+'</span>';};
     img.src=src;btn.appendChild(img);
