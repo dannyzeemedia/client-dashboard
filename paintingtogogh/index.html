@@ -1044,35 +1044,41 @@ function auditWins(host,wins){
   wrap.querySelectorAll('.win-link').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();
     const t=document.getElementById(a.getAttribute('href').slice(1));
     if(t){t.scrollIntoView({behavior:'smooth',block:'center'});t.classList.add('flash');setTimeout(()=>t.classList.remove('flash'),1400);}}));}
-var storeView='monthly';
-function auditStoreShare(host,S){const cur=(S.current&&S.current.mtd)?S.current:null;
-  const m=S.months.slice(-12).concat(cur?[cur.month]:[]);
-  const store=(S.store||[]).slice(-12).concat(cur?[cur.mtd.store||0]:[]);
-  const flow=S.flow.slice(-12).concat(cur?[cur.mtd.flow]:[]);
-  const camp=S.camp.slice(-12).concat(cur?[cur.mtd.camp]:[]);
-  const share=store.map((s,i)=>s?+(((flow[i]+camp[i])/s)*100).toFixed(1):0);
+var storeView='monthly', storeSpan=0;
+function auditStoreShare(host,S,spec){spec=spec||{};const cur=(S.current&&S.current.mtd)?S.current:null;
+  const spans=spec.spans;if(!storeSpan)storeSpan=spans?(spans.indexOf(12)>=0?12:spans[0]):12;
   const box=document.createElement('div');host.appendChild(box);
   function draw(){box.innerHTML='';
-    const seg=document.createElement('div');seg.className='chartseg';
-    [['monthly','Monthly'],['cum','Cumulative']].forEach(([v,lab])=>{const b=document.createElement('button');
-      b.className='csg'+(storeView===v?' on':'');b.textContent=lab;
-      b.addEventListener('click',e=>{e.stopPropagation();storeView=v;draw();});seg.appendChild(b);});
-    box.appendChild(seg);
+    const N=spans?storeSpan:12;
+    const m=S.months.slice(-N).concat(cur?[cur.month]:[]);
+    const store=(S.store||[]).slice(-N).concat(cur?[cur.mtd.store||0]:[]);
+    const flow=S.flow.slice(-N).concat(cur?[cur.mtd.flow]:[]);
+    const camp=S.camp.slice(-N).concat(cur?[cur.mtd.camp]:[]);
+    const share=store.map((s,i)=>s?+(((flow[i]+camp[i])/s)*100).toFixed(1):0);
+    const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
+    if(spans){const seg=document.createElement('div');seg.className='chartseg';seg.style.margin='0';
+      spans.forEach(sp=>{const b=document.createElement('button');b.className='csg'+(storeSpan===sp?' on':'');b.textContent=sp+' mo';
+        b.addEventListener('click',e=>{e.stopPropagation();storeSpan=sp;draw();});seg.appendChild(b);});ctrl.appendChild(seg);}
+    const seg2=document.createElement('div');seg2.className='chartseg';seg2.style.margin='0';
+    [['monthly','Monthly'],['cum','Cumulative']].forEach(([v,lab])=>{const b=document.createElement('button');b.className='csg'+(storeView===v?' on':'');b.textContent=lab;
+      b.addEventListener('click',e=>{e.stopPropagation();storeView=v;draw();});seg2.appendChild(b);});ctrl.appendChild(seg2);
+    box.appendChild(ctrl);
     let run=0;const cum=store.map(v=>run+=v);
     const sv=storeView==='cum'?cum:store,svLab=storeView==='cum'?'Cumulative store revenue':'Store revenue / mo';
-    const W=1080,H=300,PL=64,PR=56,PT=16,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=m.length;
+    const W=1080,H=312,PL=64,PR=56,PT=28,PB=38,iw=W-PL-PR,ih=H-PT-PB,n=m.length;
     const smax=niceMax(Math.max(...sv,1)),pmax=niceMax(Math.max(...share,10));
     const x=i=>PL+(n<=1?iw/2:iw*i/(n-1)),ys=v=>PT+ih-(v/smax)*ih,yp=v=>PT+ih-(v/pmax)*ih,ev=lblEvery(n);
     const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
     for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:ys(smax*g/4),y2:ys(smax*g/4)}));
       const tl=el('text',{class:'ax',x:PL-8,y:ys(smax*g/4)+4,'text-anchor':'end'});tl.textContent=kfmt(smax*g/4);svg.appendChild(tl);
       const tr=el('text',{class:'ax',style:'fill:var(--flow)',x:W-PR+8,y:yp(pmax*g/4)+4,'text-anchor':'start'});tr.textContent=Math.round(pmax*g/4)+'%';svg.appendChild(tr);}
+    if(spec.markers){let mi=0;m.forEach((mm,i)=>{const mk=spec.markers.find(k=>k.m===+mm.split('-')[1]);
+      if(mk){const xx=x(i);svg.appendChild(el('line',{x1:xx,x2:xx,y1:PT,y2:PT+ih,stroke:'var(--muted)','stroke-width':1,'stroke-dasharray':'3 3',opacity:0.5}));
+        const t=el('text',{x:xx,y:(mi%2?PT-4:PT-15),'text-anchor':'middle',style:'fill:var(--muted);font-size:8.5px;font-weight:700'});t.textContent=mk.label;svg.appendChild(t);mi++;}});}
     let a='M'+x(0)+' '+(PT+ih);sv.forEach((v,i)=>a+='L'+x(i)+' '+ys(v));a+='L'+x(n-1)+' '+(PT+ih)+'Z';
     svg.appendChild(el('path',{d:a,fill:'var(--camp)','fill-opacity':0.20,stroke:'none'}));
-    let ls='';sv.forEach((v,i)=>ls+=(i?'L':'M')+x(i)+' '+ys(v));
-    svg.appendChild(el('path',{d:ls,fill:'none',stroke:'var(--camp)','stroke-width':2,'stroke-linejoin':'round'}));
-    let lp='';share.forEach((v,i)=>lp+=(i?'L':'M')+x(i)+' '+yp(v));
-    svg.appendChild(el('path',{d:lp,fill:'none',stroke:'var(--flow)','stroke-width':3,'stroke-linejoin':'round'}));
+    let ls='';sv.forEach((v,i)=>ls+=(i?'L':'M')+x(i)+' '+ys(v));svg.appendChild(el('path',{d:ls,fill:'none',stroke:'var(--camp)','stroke-width':2,'stroke-linejoin':'round'}));
+    let lp='';share.forEach((v,i)=>lp+=(i?'L':'M')+x(i)+' '+yp(v));svg.appendChild(el('path',{d:lp,fill:'none',stroke:'var(--flow)','stroke-width':3,'stroke-linejoin':'round'}));
     share.forEach((v,i)=>svg.appendChild(el('circle',{cx:x(i),cy:yp(v),r:3.2,fill:'var(--flow)'})));
     m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(mm)+(cur&&i===n-1?'*':'');svg.appendChild(t);}});
     svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
@@ -1084,7 +1090,7 @@ function auditStoreShare(host,S){const cur=(S.current&&S.current.mtd)?S.current:
     hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(box);});svg.appendChild(hit);
     box.appendChild(alegend([svLab,'var(--camp)'],['Email % of store','var(--flow)']));box.appendChild(svg);
     const note=document.createElement('div');note.className='conc-note';
-    note.textContent=storeView==='cum'?'Total store revenue building up across the year (area); email and SMS as a share of it (line), sitting near 14%. A big store, a thin slice.':'Monthly store revenue (area) against email and SMS as a share of it (line), near 14%. A big store, and only a thin slice captured by email.';
+    note.textContent=(storeView==='cum'?'Total store revenue building up (area); email and SMS as a share of it (line). ':'Monthly store revenue (area) against email and SMS as a share of it (line). ')+(spec.markers?'Dashed lines mark major gift-giving moments; the store spikes hard through the winter gifting season and stays quiet the rest of the year.':'');
     box.appendChild(note);}
   draw();}
 function auditFunnel(host,spec){const st=spec.stages||[];
@@ -1096,7 +1102,7 @@ function auditFunnel(host,spec){const st=spec.stages||[];
   host.appendChild(wrap);
   if(spec.leak){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.leak;host.appendChild(n);}}
 function auditCompare(host,spec){const items=spec.items||[],mx=Math.max(...items.map(i=>Math.abs(i.value)||0),1);
-  const fmt=spec.money?kfmt:(v=>nfmt(v));
+  const fmt=spec.money?kfmt:spec.rpr?(v=>'$'+(+v).toFixed(2)):(v=>nfmt(v));
   const wrap=document.createElement('div');wrap.className='abars';
   wrap.innerHTML=items.map(it=>{const pct=Math.max(it.value>0?4:0,Math.abs(it.value)/mx*100),c=it.flag?'var(--crit)':'var(--flow)';
     return '<div class="abar'+(it.flag?' flag':'')+'"><span class="abl" title="'+esc(it.label)+'">'+esc(it.label)+'</span>'
@@ -1107,7 +1113,7 @@ function auditCompare(host,spec){const items=spec.items||[],mx=Math.max(...items
 function renderAuditChart(host,spec,S){
   if(spec.type==='funnel')return auditFunnel(host,spec);
   if(spec.type==='compare')return auditCompare(host,spec);
-  if(spec.type==='storeshare')return auditStoreShare(host,S);
+  if(spec.type==='storeshare')return auditStoreShare(host,S,spec);
   if(spec.type==='growth')return auditGrowth(host,S,spec);
   if(spec.type==='flowrpr')return auditFlowRpr(host,S);
   if(spec.type==='trend')return auditTrend(host,spec,S);
