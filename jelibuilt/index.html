@@ -1082,7 +1082,7 @@ function auditWins(host,wins){
     if(t){t.scrollIntoView({behavior:'smooth',block:'center'});t.classList.add('flash');setTimeout(()=>t.classList.remove('flash'),1400);}}));}
 var storeView='monthly', storeSpan=0;
 function auditStoreShare(host,S,spec){spec=spec||{};const cur=(S.current&&S.current.mtd)?S.current:null;
-  const spans=spec.spans;if(!storeSpan)storeSpan=spans?(spans.indexOf(24)>=0?24:spans.indexOf(12)>=0?12:spans[0]):12;
+  const spans=spec.spans;if(!storeSpan)storeSpan=spans?(spans.indexOf(12)>=0?12:spans[0]):12;
   const box=document.createElement('div');host.appendChild(box);
   function draw(){box.innerHTML='';
     const N=spans?storeSpan:12;
