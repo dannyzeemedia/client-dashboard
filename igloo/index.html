@@ -346,7 +346,7 @@
   .callout.bad{background:color-mix(in srgb,var(--crit) 8%,var(--surface))} .callout.bad .co-ic{background:color-mix(in srgb,var(--crit) 18%,var(--surface));color:var(--crit)}
   .callout.idea{background:color-mix(in srgb,var(--aqua) 9%,var(--surface))} .callout.idea .co-ic{background:color-mix(in srgb,var(--aqua) 18%,var(--surface));color:var(--aqua)}
   .flowtbl{font-size:13px}
-  .ft-row{display:grid;grid-template-columns:1fr 120px 70px 80px;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--border)}
+  .ft-row{display:grid;grid-template-columns:1fr 108px 54px 52px 76px;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--border)}
   .ft-head{font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);border-bottom:1.5px solid var(--border)}
   .ft-head span{cursor:pointer;user-select:none} .ft-head span:hover{color:var(--ink)}
   .ft-l{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .ft-r{text-align:right;font-variant-numeric:tabular-nums}
@@ -1183,22 +1183,36 @@ function auditThumbs(host,spec){
       return '<div class="callout '+(c.type||'bad')+'"><span class="co-ic">'+ic+'</span><span>'+esc(c.text)+'</span></div>';}).join('');
     host.appendChild(cl);}}
 function auditFlowTable(host,S,spec){
-  let fs=(S.flow_summary||[]).map(r=>({name:r[1],rev:r[2],deliv:r[3],msgs:r[5],rpr:r[3]?r[2]/r[3]:0,fid:r[0]}));
+  const rec=name=>{const n=(name||'').toLowerCase();
+    if(/welcome|onboard|acquisition/.test(n))return 7;
+    if(/site aband/.test(n))return 6;
+    if(/browse aband/.test(n))return 8;
+    if(/checkout aband/.test(n))return 9;
+    if(/cart aband/.test(n))return 9;
+    if(/post.?purchase|thank you|thankyou/.test(n))return 11;
+    return null;};
+  let fs=(S.flow_summary||[]).map(r=>({name:r[1],rev:r[2],deliv:r[3],msgs:r[5],rpr:r[3]?r[2]/r[3]:0,fid:r[0],rec:rec(r[1])}));
+  fs.forEach(r=>r.gap=(r.rec!=null?r.msgs-r.rec:99));
   fs.sort((a,b)=>b.rev-a.rev);fs=fs.slice(0,spec.top||20);
   const CS=S.currency_symbol||'$';
   const fmtRev=v=>CS+(v>=1000?Math.round(v/1000)+'k':Math.round(v));
-  const cols=[['name','Flow'],['rev','Revenue (12 mo)'],['msgs','Msgs'],['rpr','RPR ('+CS+'/Rec)']];
+  const cols=[['name','Flow'],['rev','Revenue (12 mo)'],['msgs','Msgs'],['rec','Rec.'],['rpr','RPR ('+CS+'/Rec)']];
   let sortKey='rev',sortDir=-1;
   const wrap=document.createElement('div');wrap.className='flowtbl';host.appendChild(wrap);
   function draw(){
-    fs.sort((a,b)=>typeof a[sortKey]==='string'?a[sortKey].localeCompare(b[sortKey])*sortDir:(a[sortKey]-b[sortKey])*sortDir);
+    fs.sort((a,b)=>{const A=a[sortKey],B=b[sortKey];if(typeof A==='string')return A.localeCompare(B)*sortDir;
+      return ((A==null?-1:A)-(B==null?-1:B))*sortDir;});
     wrap.innerHTML='<div class="ft-row ft-head">'+cols.map((c,i)=>'<span class="'+(i===0?'ft-l':'ft-r')+'" data-k="'+c[0]+'">'+c[1]+(sortKey===c[0]?(sortDir<0?' ▾':' ▴'):'')+'</span>').join('')+'</div>'
-      +fs.map(r=>'<div class="ft-row">'
+      +fs.map(r=>{const short=r.rec!=null&&r.msgs<r.rec;
+        return '<div class="ft-row">'
         +'<a class="ft-l" href="https://www.klaviyo.com/flow/'+r.fid+'/edit" target="_blank" rel="noopener" title="'+esc(r.name)+'">'+esc(r.name)+' ↗</a>'
-        +'<span class="ft-r">'+fmtRev(r.rev)+'</span><span class="ft-r">'+r.msgs+'</span><span class="ft-r">'+CS+r.rpr.toFixed(2)+'</span></div>').join('');
+        +'<span class="ft-r">'+fmtRev(r.rev)+'</span>'
+        +'<span class="ft-r"'+(short?' style="color:var(--crit);font-weight:700"':'')+'>'+r.msgs+'</span>'
+        +'<span class="ft-r" style="color:var(--muted)">'+(r.rec!=null?r.rec:'—')+'</span>'
+        +'<span class="ft-r">'+CS+r.rpr.toFixed(2)+'</span></div>';}).join('');
     wrap.querySelectorAll('.ft-head [data-k]').forEach(h=>h.addEventListener('click',()=>{const k=h.dataset.k;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=k==='name'?1:-1;}draw();}));}
   draw();
-  const n=document.createElement('div');n.className='conc-note';n.textContent=(spec.note?spec.note+' ':'')+'Click any column header to sort.';host.appendChild(n);}
+  const n=document.createElement('div');n.className='conc-note';n.textContent=(spec.note?spec.note+' ':'')+'Rec. = messages our retention map recommends for that flow type; a red Msgs count is below recommended. Click any column header to sort.';host.appendChild(n);}
 function auditFlowCoverage(host,spec){
   const wrap=document.createElement('div');wrap.className='fcov';
   const col=(title,items,cls,ic)=>'<div class="fcov-col"><h4>'+esc(title)+'</h4>'
