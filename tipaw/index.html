@@ -1091,6 +1091,7 @@ function auditStoreShare(host,S,spec){spec=spec||{};const cur=(S.current&&S.curr
     const flow=S.flow.slice(-N).concat(cur?[cur.mtd.flow]:[]);
     const camp=S.camp.slice(-N).concat(cur?[cur.mtd.camp]:[]);
     const share=store.map((s,i)=>s?+(((flow[i]+camp[i])/s)*100).toFixed(1):0);
+    const ma3=share.map((_,i)=>{const w=share.slice(Math.max(0,i-2),i+1);return +(w.reduce((a,b)=>a+b,0)/w.length).toFixed(1);});
     const ctrl=document.createElement('div');ctrl.style.cssText='display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px';
     if(spans){const seg=document.createElement('div');seg.className='chartseg';seg.style.margin='0';
       spans.forEach(sp=>{const b=document.createElement('button');b.className='csg'+(storeSpan===sp?' on':'');b.textContent=sp+' mo';
@@ -1116,15 +1117,16 @@ function auditStoreShare(host,S,spec){spec=spec||{};const cur=(S.current&&S.curr
     let ls='';sv.forEach((v,i)=>ls+=(i?'L':'M')+x(i)+' '+ys(v));svg.appendChild(el('path',{d:ls,fill:'none',stroke:'var(--camp)','stroke-width':2,'stroke-linejoin':'round'}));
     let lp='';share.forEach((v,i)=>lp+=(i?'L':'M')+x(i)+' '+yp(v));svg.appendChild(el('path',{d:lp,fill:'none',stroke:'var(--flow)','stroke-width':3,'stroke-linejoin':'round'}));
     share.forEach((v,i)=>svg.appendChild(el('circle',{cx:x(i),cy:yp(v),r:3.2,fill:'var(--flow)'})));
+    let mp='';ma3.forEach((v,i)=>mp+=(i?'L':'M')+x(i)+' '+yp(v));svg.appendChild(el('path',{d:mp,fill:'none',stroke:'var(--aqua)','stroke-width':2.5,'stroke-dasharray':'6 4','stroke-linejoin':'round'}));
     m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-14,'text-anchor':'middle'});t.textContent=mlabel(mm)+(cur&&i===n-1?'*':'');svg.appendChild(t);}});
     svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
     const cross=el('line',{class:'cross',y1:PT,y2:PT+ih,opacity:0});svg.appendChild(cross);
     const hit=el('rect',{x:PL,y:PT,width:iw,height:ih,fill:'transparent'});
     hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;
       const i=Math.max(0,Math.min(n-1,Math.round((px-PL)/iw*(n-1))));cross.setAttribute('x1',x(i));cross.setAttribute('x2',x(i));cross.setAttribute('opacity',1);
-      showTip(box,e,mlabel(m[i]),[[svLab,sv[i],'var(--camp)',kfmt],['Email share of store',share[i],'var(--flow)',v=>v.toFixed(1)+'%']],kfmt);});
+      showTip(box,e,mlabel(m[i]),[[svLab,sv[i],'var(--camp)',kfmt],['Email share of store',share[i],'var(--flow)',v=>v.toFixed(1)+'%'],['3-mo average',ma3[i],'var(--aqua)',v=>v.toFixed(1)+'%']],kfmt);});
     hit.addEventListener('mouseleave',()=>{cross.setAttribute('opacity',0);hideTip(box);});svg.appendChild(hit);
-    box.appendChild(alegend([svLab,'var(--camp)'],['Email % of store','var(--flow)']));box.appendChild(svg);
+    box.appendChild(alegend([svLab,'var(--camp)'],['Email % of store','var(--flow)'],['3-mo average','var(--aqua)']));box.appendChild(svg);
     const note=document.createElement('div');note.className='conc-note';
     note.textContent=(storeView==='cum'?'Total store revenue building up (area); email and SMS as a share of it (line). ':'Monthly store revenue (area) against email and SMS as a share of it (line). ')+(spec.markers?'Dashed lines mark major gift-giving moments; the store spikes hard through the winter gifting season and stays quiet the rest of the year.':'');
     box.appendChild(note);}
