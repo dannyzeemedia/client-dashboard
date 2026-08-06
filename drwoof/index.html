@@ -140,6 +140,7 @@
   .sev.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 32%,var(--border))}
   .sev.note{color:var(--ink2);background:var(--surface-2);border:1px solid var(--border)}
   .sev.cta{color:var(--aqua);background:color-mix(in srgb,var(--aqua) 15%,var(--surface));border:1px solid color-mix(in srgb,var(--aqua) 34%,var(--border))}
+  .sev.good{color:var(--good);background:color-mix(in srgb,var(--good) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--good) 32%,var(--border))}
   .cta{border:1px solid color-mix(in srgb,var(--flow) 28%,var(--border));border-radius:14px;padding:24px;text-align:center;background:color-mix(in srgb,var(--flow) 6%,var(--surface))}
   .cta-lead{font-size:19px;color:var(--ink);font-weight:600}
   .cta-lead b{color:var(--flow)}
@@ -317,6 +318,12 @@
   .fnl-row.bad .fnl-bar>i{background:var(--crit)}
   .fnl-val{font-size:13.5px;font-weight:800;color:var(--ink);text-align:right}
   .fnl-row.bad .fnl-val{color:var(--crit)}
+  .reach-freq{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+  .reach-freq .rf-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .reach-freq .rf-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:5px 0;border-bottom:1px dashed var(--border)}
+  .reach-freq .rf-row:last-child{border-bottom:none}
+  .reach-freq .rf-lab{font-size:12.5px;color:var(--ink2);font-weight:600}
+  .reach-freq .rf-note{font-size:12px;color:var(--ink);font-weight:700;white-space:nowrap}
 
   .filters{display:flex;align-items:center;justify-content:center;gap:9px 24px;flex-wrap:wrap;margin:20px 0 4px;
     background:color-mix(in srgb,var(--flow) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--flow) 18%,var(--border));
@@ -1012,7 +1019,7 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
   body.innerHTML=''; if(!A||!A.findings)return;
   if(A.wins&&A.wins.length)auditWins(body,A.wins);
   A.findings.forEach((f,i)=>{const card=document.createElement('div');card.className='afind';card.id='afind-'+i;
-    const sev=f.sev||'note',lbl=sev==='crit'?'Critical':sev==='warn'?'Watch':sev==='cta'?'Next step':'Note';
+    const sev=f.sev||'note',lbl=sev==='crit'?'Critical':sev==='warn'?'Watch':sev==='cta'?'Next step':sev==='good'?'Strength':'Note';
     card.innerHTML='<div class="ahead"><span class="anum">'+String(i+1).padStart(2,'0')+'</span>'
       +'<span class="sev '+sev+'">'+lbl+'</span><h3>'+f.title+'</h3></div>'
       +'<div class="abody">'+f.body+'</div>';
@@ -1110,8 +1117,23 @@ function auditCompare(host,spec){const items=spec.items||[],mx=Math.max(...items
       +'<span class="abv">'+fmt(it.value)+'</span></div>';}).join('');
   host.appendChild(wrap);
   if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
+function auditReach(host,spec){
+  const steps=spec.steps||[],mx=Math.max(...steps.map(s=>s.value||0),1);
+  const wrap=document.createElement('div');wrap.className='fnl';
+  wrap.innerHTML=steps.map((s,i)=>{const pct=Math.max(6,(s.value||0)/mx*100);
+    const c=s.good?'var(--good)':(i===0?'var(--muted)':'var(--camp)');
+    return '<div class="fnl-row"><span class="fnl-lab">'+esc(s.label)+'</span>'
+      +'<span class="fnl-bar"><i style="width:'+pct+'%;background:'+c+'"></i></span>'
+      +'<span class="fnl-val">'+nfmt(s.value)+'</span></div>';}).join('');
+  host.appendChild(wrap);
+  if(spec.freq&&spec.freq.length){const fl=document.createElement('div');fl.className='reach-freq';
+    fl.innerHTML='<div class="rf-h">'+esc(spec.freqHead||'How often each tier is mailed')+'</div>'
+      +spec.freq.map(f=>'<div class="rf-row"><span class="rf-lab">'+esc(f.label)+'</span><span class="rf-note">'+esc(f.note)+'</span></div>').join('');
+    host.appendChild(fl);}
+  if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
 function renderAuditChart(host,spec,S){
   if(spec.type==='funnel')return auditFunnel(host,spec);
+  if(spec.type==='reachladder')return auditReach(host,spec);
   if(spec.type==='compare')return auditCompare(host,spec);
   if(spec.type==='storeshare')return auditStoreShare(host,S,spec);
   if(spec.type==='growth')return auditGrowth(host,S,spec);
