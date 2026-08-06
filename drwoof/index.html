@@ -324,6 +324,21 @@
   .reach-freq .rf-row:last-child{border-bottom:none}
   .reach-freq .rf-lab{font-size:12.5px;color:var(--ink2);font-weight:600}
   .reach-freq .rf-note{font-size:12px;color:var(--ink);font-weight:700;white-space:nowrap}
+  .abody p{margin:0 0 10px} .abody p:last-child{margin-bottom:0}
+  .fcov{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
+  @media(max-width:560px){.fcov{grid-template-columns:1fr}}
+  .fcov-col h4{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .fcov-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;color:var(--ink);border-bottom:1px dashed var(--border)}
+  .fcov-item:last-child{border-bottom:none}
+  .fcov-ic{flex:none;width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+  .fcov-ic.y{background:color-mix(in srgb,var(--good) 18%,var(--surface));color:var(--good)}
+  .fcov-ic.n{background:color-mix(in srgb,var(--crit) 15%,var(--surface));color:var(--crit)}
+  .thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media(max-width:640px){.thumbs{grid-template-columns:repeat(2,1fr)}}
+  .thumb{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface-2)}
+  .thumb img{display:block;width:100%;height:auto}
+  .thumb-ph{aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;text-align:center;padding:8px;border:1px dashed var(--border);background:repeating-linear-gradient(45deg,transparent,transparent 8px,color-mix(in srgb,var(--muted) 6%,transparent) 8px,color-mix(in srgb,var(--muted) 6%,transparent) 16px)}
+  .thumb-cap{font-size:11px;font-weight:700;color:var(--ink2);text-align:center;padding:6px 4px}
 
   .filters{display:flex;align-items:center;justify-content:center;gap:9px 24px;flex-wrap:wrap;margin:20px 0 4px;
     background:color-mix(in srgb,var(--flow) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--flow) 18%,var(--border));
@@ -1131,9 +1146,57 @@ function auditReach(host,spec){
       +spec.freq.map(f=>'<div class="rf-row"><span class="rf-lab">'+esc(f.label)+'</span><span class="rf-note">'+esc(f.note)+'</span></div>').join('');
     host.appendChild(fl);}
   if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
+function auditThumbs(host,spec){
+  const items=spec.items||[];
+  const wrap=document.createElement('div');wrap.className='thumbs';
+  wrap.innerHTML=items.map(it=>'<div class="thumb">'
+    +(it.src?'<img src="'+it.src+'" alt="'+esc(it.caption||'')+'">':'<div class="thumb-ph">image coming</div>')
+    +'<div class="thumb-cap">'+esc(it.caption||'')+'</div></div>').join('');
+  host.appendChild(wrap);
+  if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
+function auditFlowCoverage(host,spec){
+  const wrap=document.createElement('div');wrap.className='fcov';
+  const col=(title,items,cls,ic)=>'<div class="fcov-col"><h4>'+esc(title)+'</h4>'
+    +items.map(t=>'<div class="fcov-item"><span class="fcov-ic '+cls+'">'+ic+'</span>'+esc(t)+'</div>').join('')+'</div>';
+  wrap.innerHTML=col(spec.liveTitle||'Live and well built',spec.live||[],'y','✓')
+    +col(spec.missingTitle||'Missing',spec.missing||[],'n','✕');
+  host.appendChild(wrap);
+  if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
+function auditSeasonBars(host,S,spec){
+  const N=spec.months||12,m=S.months.slice(-N),store=(S.store||[]).slice(-N);
+  const W=1080,H=260,PL=64,PR=18,PT=18,PB=40,iw=W-PL-PR,ih=H-PT-PB,n=m.length;
+  const mx=niceMax(Math.max(...store,1)),peak=spec.peak||[11,12,1,2];
+  const bw=iw/n*0.68,x=i=>PL+iw*(i+0.5)/n,y=v=>PT+ih-(v/mx)*ih;
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(mx*g/4),y2:y(mx*g/4)}));
+    const t=el('text',{class:'ax',x:PL-8,y:y(mx*g/4)+4,'text-anchor':'end'});t.textContent=kfmt(mx*g/4);svg.appendChild(t);}
+  store.forEach((v,i)=>{const isP=peak.includes(+m[i].split('-')[1]);
+    svg.appendChild(el('rect',{x:x(i)-bw/2,y:y(v),width:bw,height:(PT+ih)-y(v),rx:3,
+      fill:isP?'var(--camp)':'color-mix(in srgb,var(--muted) 38%,var(--surface))'}));});
+  const ev=lblEvery(n);
+  m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-16,'text-anchor':'middle'});t.textContent=mlabel(mm);svg.appendChild(t);}});
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+  host.appendChild(svg);
+  if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
+function auditFlowSplit(host,spec){
+  const groups=spec.groups||[];
+  const wrap=document.createElement('div');wrap.className='fnl';
+  wrap.innerHTML=groups.map(g=>{const segs=(g.segments||[]).slice().sort((a,b)=>b-a),tot=segs.reduce((a,b)=>a+b,0)||1;
+    const bar=segs.map((s,i)=>'<span style="display:block;height:100%;width:'+(s/tot*100)+'%;background:'
+      +(i%2?'var(--flow)':'color-mix(in srgb,var(--flow) 50%,var(--surface))')+';border-right:1.5px solid var(--surface)"></span>').join('');
+    return '<div class="fnl-row" style="grid-template-columns:158px 1fr 78px">'
+      +'<span class="fnl-lab">'+esc(g.type)+'</span>'
+      +'<span class="fnl-bar" style="display:flex">'+bar+'</span>'
+      +'<span class="fnl-val'+(g.flows>=5?'':'')+'" style="font-size:12px;color:'+(g.flows>=5?'var(--crit)':'var(--ink)')+'">'+g.flows+' flows</span></div>';}).join('');
+  host.appendChild(wrap);
+  if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
 function renderAuditChart(host,spec,S){
   if(spec.type==='funnel')return auditFunnel(host,spec);
   if(spec.type==='reachladder')return auditReach(host,spec);
+  if(spec.type==='thumbs')return auditThumbs(host,spec);
+  if(spec.type==='flowcoverage')return auditFlowCoverage(host,spec);
+  if(spec.type==='seasonbars')return auditSeasonBars(host,S,spec);
+  if(spec.type==='flowsplit')return auditFlowSplit(host,spec);
   if(spec.type==='compare')return auditCompare(host,spec);
   if(spec.type==='storeshare')return auditStoreShare(host,S,spec);
   if(spec.type==='growth')return auditGrowth(host,S,spec);
