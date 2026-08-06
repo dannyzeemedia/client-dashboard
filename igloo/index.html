@@ -1038,8 +1038,10 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
     card.innerHTML='<div class="ahead"><span class="anum">'+String(i+1).padStart(2,'0')+'</span>'
       +'<span class="sev '+sev+'">'+lbl+'</span><h3>'+f.title+'</h3></div>'
       +'<div class="abody">'+f.body+'</div>';
-    const h=document.createElement('div');h.className='achart';card.appendChild(h);body.appendChild(card);
-    if(f.chart){try{renderAuditChart(h,f.chart,S);}catch(e){h.remove();}}else h.remove();});
+    body.appendChild(card);
+    const charts=f.chart?(Array.isArray(f.chart)?f.chart:[f.chart]):[];
+    charts.forEach(cspec=>{const h=document.createElement('div');h.className='achart';card.appendChild(h);
+      try{renderAuditChart(h,cspec,S);}catch(e){h.remove();}});});
   renderPins();}
 function auditWins(host,wins){
   const arr=wins.slice().sort((a,b)=>(b.dollars||0)-(a.dollars||0));
@@ -1167,28 +1169,57 @@ function auditSeasonBars(host,S,spec){
   const W=1080,H=260,PL=64,PR=18,PT=18,PB=40,iw=W-PL-PR,ih=H-PT-PB,n=m.length;
   const mx=niceMax(Math.max(...store,1)),peak=spec.peak||[11,12,1,2];
   const bw=iw/n*0.68,x=i=>PL+iw*(i+0.5)/n,y=v=>PT+ih-(v/mx)*ih;
+  host.style.position='relative';
   const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
   for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(mx*g/4),y2:y(mx*g/4)}));
     const t=el('text',{class:'ax',x:PL-8,y:y(mx*g/4)+4,'text-anchor':'end'});t.textContent=kfmt(mx*g/4);svg.appendChild(t);}
   store.forEach((v,i)=>{const isP=peak.includes(+m[i].split('-')[1]);
-    svg.appendChild(el('rect',{x:x(i)-bw/2,y:y(v),width:bw,height:(PT+ih)-y(v),rx:3,
-      fill:isP?'var(--camp)':'color-mix(in srgb,var(--muted) 38%,var(--surface))'}));});
+    const rect=el('rect',{x:x(i)-bw/2,y:y(v),width:bw,height:(PT+ih)-y(v),rx:3,cursor:'pointer',
+      fill:isP?'var(--camp)':'color-mix(in srgb,var(--muted) 38%,var(--surface))'});
+    rect.addEventListener('mousemove',e=>showTip(host,e,mlabel(m[i])+(isP?' (peak)':''),[['Store revenue',v,isP?'var(--camp)':'var(--muted)',kfmt]]));
+    rect.addEventListener('mouseleave',()=>hideTip(host));svg.appendChild(rect);});
   const ev=lblEvery(n);
   m.forEach((mm,i)=>{if(i%ev===0||i===n-1){const t=el('text',{class:'ax',x:x(i),y:H-16,'text-anchor':'middle'});t.textContent=mlabel(mm);svg.appendChild(t);}});
   svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
   host.appendChild(svg);
   if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
 function auditFlowSplit(host,spec){
+  host.style.position='relative';
   const groups=spec.groups||[];
-  const wrap=document.createElement('div');wrap.className='fnl';
-  wrap.innerHTML=groups.map(g=>{const segs=(g.segments||[]).slice().sort((a,b)=>b-a),tot=segs.reduce((a,b)=>a+b,0)||1;
-    const bar=segs.map((s,i)=>'<span style="display:block;height:100%;width:'+(s/tot*100)+'%;background:'
-      +(i%2?'var(--flow)':'color-mix(in srgb,var(--flow) 50%,var(--surface))')+';border-right:1.5px solid var(--surface)"></span>').join('');
-    return '<div class="fnl-row" style="grid-template-columns:158px 1fr 78px">'
-      +'<span class="fnl-lab">'+esc(g.type)+'</span>'
-      +'<span class="fnl-bar" style="display:flex">'+bar+'</span>'
-      +'<span class="fnl-val'+(g.flows>=5?'':'')+'" style="font-size:12px;color:'+(g.flows>=5?'var(--crit)':'var(--ink)')+'">'+g.flows+' flows</span></div>';}).join('');
-  host.appendChild(wrap);
+  const wrap=document.createElement('div');wrap.className='fnl';host.appendChild(wrap);
+  const segval=s=>typeof s==='object'?(s.value||0):s;
+  groups.forEach(g=>{const segs=(g.segments||[]).slice().sort((a,b)=>segval(b)-segval(a));
+    const tot=segs.reduce((a,s)=>a+segval(s),0)||1;
+    const row=document.createElement('div');row.className='fnl-row';row.style.gridTemplateColumns='158px 1fr 78px';
+    const lab=document.createElement('span');lab.className='fnl-lab';lab.textContent=g.type;row.appendChild(lab);
+    const bar=document.createElement('span');bar.className='fnl-bar';bar.style.display='flex';
+    segs.forEach((s,i)=>{const v=segval(s),nm=typeof s==='object'?s.name:g.type;
+      const seg=document.createElement('span');
+      seg.style.cssText='display:block;height:100%;width:'+(v/tot*100)+'%;background:'+(i%2?'var(--flow)':'color-mix(in srgb,var(--flow) 50%,var(--surface))')+';border-right:1.5px solid var(--surface);cursor:pointer';
+      seg.addEventListener('mousemove',e=>showTip(host,e,nm,[['Emails (12 mo)',v,'var(--flow)',x=>x.toLocaleString()]]));
+      seg.addEventListener('mouseleave',()=>hideTip(host));
+      bar.appendChild(seg);});
+    row.appendChild(bar);
+    const val=document.createElement('span');val.className='fnl-val';val.style.cssText='font-size:12px;color:'+(g.flows>=5?'var(--crit)':'var(--ink)');val.textContent=g.flows+' flows';row.appendChild(val);
+    wrap.appendChild(row);});
+  if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note+' Hover any slice for the flow and its volume.';host.appendChild(n);}}
+function auditCampSize(host,spec){
+  const data=spec.data||[],mx=niceMax(Math.max(...data.map(d=>d.avgrev||0),1));
+  const W=1080,H=290,PL=64,PR=18,PT=22,PB=64,iw=W-PL-PR,ih=H-PT-PB,n=data.length;
+  const bw=iw/n*0.5,x=i=>PL+iw*(i+0.5)/n,y=v=>PT+ih-(v/mx)*ih;
+  host.style.position='relative';
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  for(let g=0;g<=4;g++){svg.appendChild(el('line',{class:'gl',x1:PL,x2:W-PR,y1:y(mx*g/4),y2:y(mx*g/4)}));
+    const t=el('text',{class:'ax',x:PL-8,y:y(mx*g/4)+4,'text-anchor':'end'});t.textContent=kfmt(mx*g/4);svg.appendChild(t);}
+  data.forEach((d,i)=>{const bx=x(i);
+    const rect=el('rect',{x:bx-bw/2,y:y(d.avgrev),width:bw,height:(PT+ih)-y(d.avgrev),rx:4,fill:'var(--camp)',cursor:'pointer'});
+    rect.addEventListener('mousemove',e=>showTip(host,e,d.label,[['Avg revenue / campaign',d.avgrev,'var(--camp)',kfmt],['Revenue per recipient',d.rpr,'var(--flow)',v=>'$'+v.toFixed(3)],['Campaigns',d.n,'var(--muted)',v=>v]]));
+    rect.addEventListener('mouseleave',()=>hideTip(host));svg.appendChild(rect);
+    const rv=el('text',{x:bx,y:y(d.avgrev)-6,'text-anchor':'middle',style:'font-weight:800;font-size:12px;fill:var(--ink)'});rv.textContent=kfmt(d.avgrev);svg.appendChild(rv);
+    const lab=el('text',{class:'ax',x:bx,y:PT+ih+18,'text-anchor':'middle'});lab.textContent=d.label;svg.appendChild(lab);
+    const eff=el('text',{x:bx,y:PT+ih+34,'text-anchor':'middle',style:'font-size:11px;fill:var(--flow);font-weight:700'});eff.textContent='$'+d.rpr.toFixed(3)+'/recip';svg.appendChild(eff);});
+  svg.appendChild(el('line',{class:'baseline',x1:PL,x2:W-PR,y1:PT+ih,y2:PT+ih}));
+  host.appendChild(svg);
   if(spec.note){const n=document.createElement('div');n.className='conc-note';n.textContent=spec.note;host.appendChild(n);}}
 function renderAuditChart(host,spec,S){
   if(spec.type==='funnel')return auditFunnel(host,spec);
@@ -1197,6 +1228,7 @@ function renderAuditChart(host,spec,S){
   if(spec.type==='flowcoverage')return auditFlowCoverage(host,spec);
   if(spec.type==='seasonbars')return auditSeasonBars(host,S,spec);
   if(spec.type==='flowsplit')return auditFlowSplit(host,spec);
+  if(spec.type==='campsize')return auditCampSize(host,spec);
   if(spec.type==='compare')return auditCompare(host,spec);
   if(spec.type==='storeshare')return auditStoreShare(host,S,spec);
   if(spec.type==='growth')return auditGrowth(host,S,spec);
