@@ -1795,6 +1795,7 @@ function wireControls(){
 
 // ---- boot ----
 const CORDER=['drwoof','asc','jelibuilt','farmulated'];   // preferred switcher order; unknown slugs appended
+const HOME_SLUG='zee';   // Zee.Media master/home route: not a client, lands on the owner's default client with the full switcher
 async function loadAndRender(){ try{
   const [ser,rep]=await Promise.all([
     sb.from('client_series').select('data'),                                   // ALL readable clients
@@ -1814,7 +1815,8 @@ async function loadAndRender(){ try{
   const groupClients=folder?ORDER.filter(s=>(SERIES[s].group||s)===folder):[];   // folder may be a group slug (e.g. /igloo/)
   const folderIsClient=!!(folder&&SERIES[folder]);
   const folderIsGroup=!!(folder&&!folderIsClient&&groupClients.length);
-  if(folder && !folderIsClient && !folderIsGroup){ await showWrongAccount(folder); return; }   // signed into an account without this client/group
+  const isHome=folder===HOME_SLUG;   // Zee.Media home: show everything the owner can read
+  if(folder && !isHome && !folderIsClient && !folderIsGroup){ await showWrongAccount(folder); return; }   // signed into an account without this client/group
   buildSwitcher();
   wireControls();
   let start=folderIsClient?folder:folderIsGroup?groupClients[0]:ORDER[0];   // folder's client, or first client of the folder's group
