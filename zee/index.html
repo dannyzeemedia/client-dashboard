@@ -302,6 +302,16 @@
   .win-detail p{margin:0 0 8px;font-size:12.5px;color:var(--ink2);line-height:1.5}
   .win-link{font-size:12.5px;font-weight:700;color:var(--flow);text-decoration:none}
   .win-link:hover{text-decoration:underline}
+  .asection{border-top:1px solid var(--border)}
+  .asec-head{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;cursor:pointer;padding:18px 2px;text-align:left;font-family:inherit}
+  .asec-chev{flex:none;color:var(--muted);font-size:13px;transition:transform .15s ease;display:inline-block}
+  .asection.open .asec-chev{transform:rotate(90deg)}
+  .asec-name{flex:none;font-size:12.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink)}
+  .asec-note{flex:1;min-width:0;font-size:13px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .asec-count{flex:none;font-size:11px;font-weight:800;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:2px 9px}
+  .asec-body{display:none;padding-bottom:6px}
+  .asection.open .asec-body{display:block}
+  @media(max-width:620px){.asec-note{display:none}}
   .afind.flash{animation:flashcard 1.3s ease}
   @keyframes flashcard{0%,100%{box-shadow:none}25%{box-shadow:0 0 0 3px color-mix(in srgb,var(--flow) 45%,transparent)}}
   .win-rank{width:24px;height:24px;border-radius:50%;background:var(--flow);color:var(--surface);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
@@ -1045,15 +1055,28 @@ function renderAudit(){const S=SERIES[ACTIVE],A=S&&S.audit,body=document.getElem
   document.getElementById('audit-sub').textContent=(A&&A.sub)||'';
   body.innerHTML=''; if(!A||!A.findings)return;
   if(A.wins&&A.wins.length)auditWins(body,A.wins);
-  A.findings.forEach((f,i)=>{const card=document.createElement('div');card.className='afind';card.id='afind-'+i;
+  function renderCardEl(f,i){const card=document.createElement('div');card.className='afind';card.id='afind-'+i;
     const sev=f.sev||'note',lbl=sev==='crit'?'Critical':sev==='warn'?'Watch':sev==='cta'?'Next step':sev==='good'?'Strength':'Note';
     card.innerHTML='<div class="ahead"><span class="anum">'+String(i+1).padStart(2,'0')+'</span>'
       +'<span class="sev '+sev+'">'+lbl+'</span><h3>'+f.title+'</h3></div>'
       +'<div class="abody">'+f.body+'</div>';
-    body.appendChild(card);
     const charts=f.chart?(Array.isArray(f.chart)?f.chart:[f.chart]):[];
     charts.forEach(cspec=>{const h=document.createElement('div');h.className='achart';card.appendChild(h);
-      try{renderAuditChart(h,cspec,S);}catch(e){h.remove();}});});
+      try{renderAuditChart(h,cspec,S);}catch(e){h.remove();}});
+    return card;}
+  const done=new Set();
+  if(A.sections&&A.sections.length){A.sections.forEach((sec,si)=>{
+    const idxs=[];A.findings.forEach((f,i)=>{if(f.section===sec.name){idxs.push(i);done.add(i);}});
+    if(!idxs.length)return;
+    const wrap=document.createElement('div');wrap.className='asection'+(si===0?' open':'');
+    const head=document.createElement('button');head.className='asec-head';head.type='button';
+    head.innerHTML='<span class="asec-chev">▸</span><span class="asec-name">'+esc(sec.name)+'</span>'
+      +'<span class="asec-note">'+esc(sec.note||'')+'</span><span class="asec-count">'+idxs.length+'</span>';
+    const bod=document.createElement('div');bod.className='asec-body';
+    idxs.forEach(i=>bod.appendChild(renderCardEl(A.findings[i],i)));
+    head.addEventListener('click',()=>wrap.classList.toggle('open'));
+    wrap.appendChild(head);wrap.appendChild(bod);body.appendChild(wrap);});}
+  A.findings.forEach((f,i)=>{if(!done.has(i))body.appendChild(renderCardEl(f,i));});
   renderPins();}
 function auditWins(host,wins){
   const arr=wins.slice().sort((a,b)=>(b.dollars||0)-(a.dollars||0));
@@ -1079,7 +1102,7 @@ function auditWins(host,wins){
     h.querySelector('.win-chev').textContent=open?'▴':'▾';}));
   wrap.querySelectorAll('.win-link').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();
     const t=document.getElementById(a.getAttribute('href').slice(1));
-    if(t){t.scrollIntoView({behavior:'smooth',block:'center'});t.classList.add('flash');setTimeout(()=>t.classList.remove('flash'),1400);}}));}
+    if(t){const sec=t.closest('.asection');if(sec)sec.classList.add('open');t.scrollIntoView({behavior:'smooth',block:'center'});t.classList.add('flash');setTimeout(()=>t.classList.remove('flash'),1400);}}));}
 var storeView='monthly', storeSpan=0;
 function auditStoreShare(host,S,spec){spec=spec||{};const cur=(S.current&&S.current.mtd)?S.current:null;
   const spans=spec.spans;if(!storeSpan)storeSpan=spans?(spans.indexOf(12)>=0?12:spans[0]):12;
